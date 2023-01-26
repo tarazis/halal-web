@@ -1,0 +1,19 @@
+>> Create manifest.json
+
+>> Navigate to `chrome://extensions`
+
+>> Enable Developer Mode
+
+>> Load Unpacked and choose the extension directory
+
+>> Add a background script as a service worker
+
+>> Add API permissions
+
+>> Create a popup html
+
+>> Reference it as an action in the manifest
+
+>> remove tab icons
+
+>> remove emojis extension

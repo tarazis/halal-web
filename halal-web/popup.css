@@ -1,0 +1,20 @@
+h1 {
+  text-align: center;
+}
+
+button {
+    height: 30px;
+    width: 100%;
+    border: none;
+    cursor:pointer;
+    margin-bottom: 5px;
+  }
+
+  button:hover {
+    background-color: aquamarine;
+  }
+  
+  button.current {
+    box-shadow: 0 0 0 2px white,
+                0 0 0 2px black;
+  }
