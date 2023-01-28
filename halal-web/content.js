@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-const ELEMENTS_TO_BLUR = ['img', 'image', 'video', 'iframe', 'canvas','div[style*="url"]', 'span[style*="url"]', 'a[style*="url"]', 'li[style*="url"]', ':host', 'svg']
+const ELEMENTS_TO_BLUR = ['img', 'image', 'video', 'iframe', 'canvas','div[style*="url"]', 'span[style*="url"]', 'a[style*="url"]', 'li[style*="url"]', ':host', 'svg', 'i']
 const ATTR_TO_BLUR = ['[data-found-by-dom-scanner="true"]']
 const ICONS_TO_BLUR = []
 const BLUR_LENGTH = 50;
