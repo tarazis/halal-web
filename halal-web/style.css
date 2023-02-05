@@ -17,3 +17,12 @@ h1 {
 .center-text {
     text-align: center;
 }
+
+#photos {
+    display: flex;
+  }
+  
+.column {
+    /* flex: 33.33%; */
+    padding: 1px;
+  }
