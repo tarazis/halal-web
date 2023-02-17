@@ -26,3 +26,7 @@ h1 {
     /* flex: 33.33%; */
     padding: 1px;
   }
+
+  p::before {
+    font-family: "Font Awesome 5 Free"; font-weight: 900; content: "\f015"
+  }
