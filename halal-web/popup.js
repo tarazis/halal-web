@@ -2,71 +2,84 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// When the 'blur' button is clicked, send a 'blur' action to content script
-document.getElementById('blur').addEventListener("click", async () => {
-    console.log('sending message to content..')
-    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, { action: 'blur' })
-});
+// Initialize extension popup form fields, values, and adds event listeners to elements.
+let options = null
+let hostname = null
+let pathname = null
 
-// When 'unblur' button is clicked, send a 'unblur' action to content script
-document.getElementById('unblur').addEventListener("click", async () => {
-    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, { action: 'unblur' })
-});
+function popupInit() {
+    let whitelistBtn = getBtn('whitelist-domain-btn')
+    let dangerlistBtn = getBtn('dangerlist-domain-btn')
+    let blurBtn = getBtn('blur-button')
+    let domainP = getBtn('domain')
 
+    // Get page hostname and path and update popup accordingly
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+        chrome.tabs.sendMessage(tabs[0].id, { action: "getPageUrl" }, (url) => {
+            // get url details
+            hostname = url.hostname
+            pathname = url.pathname
+            domainP.innerHTML = hostname
 
+            // update popup if url is whitelisted
+            let whitelistedDomains = []
+            chrome.storage.sync.get(['whitelistedDomains']).then((res) => {
+                if(res.whitelistedDomains) {
+                    whitelistedDomains = res.whitelistedDomains
+                }
 
+                // domain whitelisted, change text of whitelist button
+                if(whitelistedDomains.includes(hostname)) {
+                    websiteIsWhitelisted()
+                } else {
+                    websiteIsDangerlisted()
+                }
+        
+            })
+        })
+    });
 
-// // Initialize button with user's preferred color
-// // This is a button
-// let changeColor = document.getElementById("changeColor");
-// let colorChanged = false;
+    // Add event listener to whitelist domain
+    whitelistBtn.addEventListener('click', async () => {
+        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.tabs.sendMessage(tab.id, { action: 'whitelistDomain' }, (res) => {
+            websiteIsWhitelisted()
+        })
+    })
 
-// chrome.storage.sync.get("color", ({ color }) => {
-//   changeColor.style.backgroundColor = color;
-// });
+    // Add event listener to danger list domain
+    dangerlistBtn.addEventListener('click', async () => {
+        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.tabs.sendMessage(tab.id, { action: 'dangerlistDomain' }, (res) => {
+            websiteIsDangerlisted()
 
-// // When the button is clicked, inject setPageBackgroundColor into current page
-// changeColor.addEventListener("click", async () => {
-//     let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-//     chrome.storage.local.set({
-//         colorChanged: colorChanged
-//     }, () => {
-//             chrome.scripting.executeScript({
-//                 target: { tabId: tab.id },
-//                 func: setPageBackgroundColor,
-//             });
-//     });
+        })
+    })
 
-//     // Once color is changed, toggle flag
-//     toggleColorChange()
-// });
-  
-// // The body of this function will be executed as a content script inside the
-// // current page
-// function setPageBackgroundColor() {
-//     let colorChangedFlag
-//     let backgroundColor
-//     console.log('hey 1')
+    // Add a click listener to blur/unblur button to be notified when a user clicks the button
+    // Then send a message to content.js telling it to blur or unblur the page
+    // Note: content.js is the web page specific script which has access to the DOM of the web page
+    blurBtn.addEventListener("click", async () => {
+        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        await chrome.tabs.sendMessage(tab.id, { action: 'blurUnblurPage' })
+    });
 
-//     chrome.storage.local.get('colorChanged', function (items) {
-//         console.log('hey 2')
+}
 
-//         colorChangedFlag = items.colorChanged
-//         chrome.storage.local.remove('colorChanged');
-//     });
-//     console.log('hey 3')
+function websiteIsWhitelisted() {
+    getBtn('whitelist-domain-btn').style.setProperty('display', 'none')
+    getBtn('dangerlist-domain-btn').style.setProperty('display', 'inline-block')
+    getBtn('domain').style.setProperty('color', '#1ED760')
+}
 
-//     chrome.storage.sync.get("color", ({ color }) => {
-//         console.log('hey 4')
+function websiteIsDangerlisted() {
+    getBtn('dangerlist-domain-btn').style.setProperty('display', 'none')
+    getBtn('whitelist-domain-btn').style.setProperty('display', 'inline-block')
+    getBtn('domain').style.setProperty('color', 'red')
+}
 
-//         backgroundColor = colorChangedFlag ? 'transparent' : color
-//         document.body.style.backgroundColor = backgroundColor;
-//     });
-// }
+function getBtn(id) {
+    return document.getElementById(id)
+}
 
-// // monitor everytime background color changes
-// function toggleColorChange() {
-//     colorChanged = !colorChanged
-// }
+popupInit()

@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+const BLUR_BY_DEFAULT = true
+// let options = {}
+let PAGE_BLURRED = false
 let ELEMENTS_TO_BLUR = ['img', 'image', 'picture', 'video', 'iframe', 'canvas','div[style*="url"]', 'span[style*="url"]', 'a[style*="url"]', 'li[style*="url"]', ':host']
 let ICONS_TO_BLUR = ['svg', 'i', 'span[class*="icon-"]', ':before', ':after']
 let ATTR_TO_BLUR_ELEMENT = ['[data-element-found-by-dom-scanner="true"]']
@@ -20,14 +23,13 @@ function addBlurCSS() {
 
     style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + '{ filter: blur(0.2rem) !important; }' : ''
     style.innerHTML += '.halal-web-pseudo:before, .halal-web-pseudo:after { filter: blur(0px) !important; }'
-    let parentElement = document.head ? document.head : document.documentElement
+    let parentElement = document.documentElement
     parentElement.appendChild(style)
 }
 
 function removeBlurCSS() {
     let style = document.getElementById('blur-css')
-    if (style) document.head.removeChild(style)
-    // unblurBackgroundImages()
+    if (style) document.documentElement.removeChild(style)
 }
 
 
@@ -178,26 +180,116 @@ function BlurUnBlur(e) {
     })
 }
 
-chrome.storage.local.get('BLUR_FLAG', data => {
+function blurUnblurPage() {
+    console.log('page is blurred: ' + PAGE_BLURRED)
+    if (PAGE_BLURRED) {
+        unblurPage()
+    } else {
+        blurPage()
+    }
+}
+
+function blurPage() {
+    console.log('blurring....')
     addBlurCSS()
     startDOMScanner()
-})
+    PAGE_BLURRED = !PAGE_BLURRED
+}
 
+function unblurPage() {
+    console.log('removing blur...')
+    removeBlurCSS()
+    stopDOMScanner()
+    PAGE_BLURRED = !PAGE_BLURRED
+}
+
+function isDomainWhitelisted(domainsArray) {
+    return domainsArray?.length > 0 && domainsArray.includes(window.location.hostname)
+}
+
+function getPageUrl() {
+    return window.location
+}
+
+function whitelistDomain() {
+    let domainToWhitelist = window.location.hostname
+
+    // Initialize an empty array
+    let whitelistedDomains = []
+    // Grab whitelisted domains from storage
+    chrome.storage.sync.get(['whitelistedDomains']).then((res) => {
+        if(res.whitelistedDomains) {
+            whitelistedDomains = res.whitelistedDomains
+        }
+
+        // push new domain to whitelistedDomains
+        if(!whitelistedDomains.includes(domainToWhitelist)) {
+            whitelistedDomains.push(domainToWhitelist)
+        }
+
+        // Add domain to whitelisted domains
+        chrome.storage.sync.set({'whitelistedDomains': whitelistedDomains}).then((res) => {
+            if (PAGE_BLURRED) unblurPage()
+        })
+    })
+}
+
+function dangerlistDomain() {
+    let domainToDangerlist = window.location.hostname
+
+    // Initialize an empty array
+    let whitelistedDomains = []
+    // Grab whitelisted domains from storage
+    chrome.storage.sync.get(['whitelistedDomains']).then((res) => {
+        if(res.whitelistedDomains) {
+            whitelistedDomains = res.whitelistedDomains
+        }
+
+        // Remove domain from whitelistedDomains
+            let domainIndex = whitelistedDomains.indexOf(domainToDangerlist)
+            if (domainIndex > -1 ) whitelistedDomains.splice(domainIndex, 1)
+
+        // Add domain to whitelisted domains
+        chrome.storage.sync.set({'whitelistedDomains': whitelistedDomains}).then((res) => {
+            if (!PAGE_BLURRED) blurPage()
+        })
+    })
+
+}
+
+// Initialize web page
+function init() {
+    // Get saved user options
+    chrome.storage.sync.get(['whitelistedDomains']).then((res)=> {
+        let domainWhitelisted = isDomainWhitelisted(res.whitelistedDomains)
+        // Blur page if domain is not white listed
+        if (!domainWhitelisted) {
+            if (!PAGE_BLURRED) blurPage()
+        } 
+    })
+}
+
+init()
 window.onbeforeunload = () => stopDOMScanner()
 
-
+// Receive and respond to messages from the extension popup here
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         if (request) {
-            console.log('action is to ', request.action)
+            // console.log('action is to ', request.action)
             switch (request.action) {
-                
-                case 'blur':
-                    addBlurCSS()
+                case 'blurUnblurPage':
+                    blurUnblurPage()
+                    break;
+                case 'getPageUrl':
+                    sendResponse(getPageUrl())
                     break;
 
-                case 'unblur':
-                    removeBlurCSS()
+                case 'whitelistDomain':
+                    whitelistDomain()
+                    break;
+                case 'dangerlistDomain':
+                    dangerlistDomain()
                     break;
             }
         }
