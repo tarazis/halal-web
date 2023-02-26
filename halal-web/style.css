@@ -18,16 +18,19 @@ h1 {
     text-align: center;
 }
 
-#photos {
-    display: flex;
-  }
+/* #photos {
+    display: block;
+  } */
   
 .column {
     /* flex: 33.33%; */
     padding: 1px;
   }
 
-  p::before {
+  .before::before {
+    font-family: "Font Awesome 5 Free"; font-weight: 900; content: "\f015"
+  }
+  .after::after {
     font-family: "Font Awesome 5 Free"; font-weight: 900; content: "\f015"
   }
 

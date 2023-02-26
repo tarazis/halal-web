@@ -2,26 +2,30 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-const BLUR_BY_DEFAULT = true
-// let options = {}
+const GOOGLE_MAPS = 'www.google.com/maps'
+
+let options = null
+let helper = null
 let PAGE_BLURRED = false
-let ELEMENTS_TO_BLUR = ['img', 'image', 'picture', 'video', 'iframe', 'canvas','div[style*="url"]', 'span[style*="url"]', 'a[style*="url"]', 'li[style*="url"]', ':host']
-let ICONS_TO_BLUR = ['svg', 'i', 'span[class*="icon-"]', ':before', ':after']
+let ELEMENTS_TO_BLUR = ['img', 'image', 'picture', 'video', 'iframe', 'canvas', '*[style*="url"]', ':host']
+let ICONS_TO_BLUR = ['svg', 'span[class*="icon-"]', ':before', ':after']
 let ATTR_TO_BLUR_ELEMENT = ['[data-element-found-by-dom-scanner="true"]']
 let ATTR_TO_BLUR_ICON = ['[data-icon-found-by-dom-scanner="true"]']
+let ATTR_TO_BLUR_PSEUDO = ['[data-pseudo-found-by-dom-scanner="true"]']
 
-const BLUR_LENGTH = 40;
-const BLUR_LENGTH_MINI = 3;
 // Keeps track of currently unhidden elements
 let currently_unhidden_elements = []
+
 function addBlurCSS() {
+    let elementVal = options ? options?.blurAmount.element : Helper.initialOptions.blurAmount.element
+    let iconVal = options ? options?.blurAmount.icon : Helper.initialOptions.blurAmount.icon
+
     let style = document.createElement('style')
     style.id = 'blur-css'
-    style.innerHTML = ELEMENTS_TO_BLUR.length > 0 ? ELEMENTS_TO_BLUR.join(',') + ` { filter: blur(${BLUR_LENGTH}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_ELEMENT.length > 0 ? ATTR_TO_BLUR_ELEMENT.join(',') + ` { filter: blur(${BLUR_LENGTH}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_ICON.length > 0 ? ATTR_TO_BLUR_ICON.join(',') + ` { filter: blur(0.2rem) !important; }` : ''
-
-    style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + '{ filter: blur(0.2rem) !important; }' : ''
+    style.innerHTML = ELEMENTS_TO_BLUR.length > 0 ? ELEMENTS_TO_BLUR.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
+    style.innerHTML += ATTR_TO_BLUR_ELEMENT.length > 0 ? ATTR_TO_BLUR_ELEMENT.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
+    style.innerHTML += ATTR_TO_BLUR_ICON.length > 0 ? ATTR_TO_BLUR_ICON.join(',') + ` { filter: blur(${iconVal}px) !important; }` : ''
+    style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + `{ filter: blur(${iconVal}px) !important; }` : ''
     style.innerHTML += '.halal-web-pseudo:before, .halal-web-pseudo:after { filter: blur(0px) !important; }'
     let parentElement = document.documentElement
     parentElement.appendChild(style)
@@ -29,7 +33,8 @@ function addBlurCSS() {
 
 function removeBlurCSS() {
     let style = document.getElementById('blur-css')
-    if (style) document.documentElement.removeChild(style)
+    if (style)
+        document.documentElement.removeChild(style)
 }
 
 
@@ -40,7 +45,6 @@ const startDOMScanner = () => {
     window.DOMScannerInterval = setInterval(() => {
         triggerDOMScanner()
         document.querySelectorAll('span:before').forEach((el) => {
-            // console.log(el)
         })
     }, 500)
 }
@@ -62,7 +66,6 @@ function triggerDOMScanner() {
 
     // Get all elements in body
     let els = window.document.body.querySelectorAll('*')
-    // console.log('DOM triggered')
 
     // Loop through elements
     els.forEach((el) => {
@@ -70,27 +73,24 @@ function triggerDOMScanner() {
         // Get element background image property
         let elementBGStyle = window.getComputedStyle(scannedElement).getPropertyValue('background-image')
 
-        let pseudoElement = window.getComputedStyle(el, '::before') || window.getComputedStyle(el, '::after')
-
-        if(pseudoElement != 'none') {
-            let content = pseudoElement.getPropertyValue('content')
-            let background = pseudoElement.getPropertyValue('background')
-            // check all types of ::before
-            if(content != 'none' || background != 'none') {
-                // console.log('pseudo found: ')
-                // console.log(content)
-                // console.log(background)
-                // console.log(pseudoElement)
-                // console.log('--------')
+        // Find pseudo elements with content != none
+        // and mark their parent element for later processing
+        let pseudoElementIconFound = false;
+        // let pseudoElement = window.getComputedStyle(scannedElement, '::before') || window.getComputedStyle(scannedElement, '::after')
+        let pseudoElementBefore = window.getComputedStyle(scannedElement, '::before')
+        let pseudoElementAfter = window.getComputedStyle(scannedElement, '::after')
+        
+        if(pseudoElementBefore != null || pseudoElementAfter != null) {
+            let contentBefore = pseudoElementBefore.getPropertyValue('content')
+            let contentAfter = pseudoElementAfter.getPropertyValue('content')
+            if(contentBefore != 'none' || contentAfter != 'none') {
+                pseudoElementIconFound = true
             }
-            // console.log('I found a pseudo selector!\n')
-            // console.log(pseudoElement.getPropertyValue('content'))
-            // pseudoSelector.style.cssText = "filter: blur(0px) !important;"
         }
 
         // if element is in 'elements to blur' or if it has a background image:
-        if (scannedElement.matches(ELEMENTS_TO_BLUR.concat(ICONS_TO_BLUR).join(',')) || elementBGStyle != 'none' || scannedElement.shadowRoot) {
-            if(!scannedElement.dataset.elementFoundByDomScanner && !scannedElement.dataset.iconFoundByDomScanner) {
+        if (scannedElement.matches(ELEMENTS_TO_BLUR.concat(ICONS_TO_BLUR).join(',')) || elementBGStyle != 'none' || scannedElement.shadowRoot || pseudoElementIconFound) {
+            if(!scannedElement.dataset.elementFoundByDomScanner && !scannedElement.dataset.iconFoundByDomScanner && !scannedElement.dataset.pseudoFoundByDomScanner) {
                 // Save default filter
                 scannedElement.defaultFilter = scannedElement.style.filter
                 // Save default pointer event
@@ -115,12 +115,17 @@ function triggerDOMScanner() {
                     scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
                     scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
                 }
-                if(scannedElement.matches(ICONS_TO_BLUR.join(','))) {
-                    scannedElement.dataset.iconFoundByDomScanner = true
+
+                // it could have both icon and pseudoelement
+                if(scannedElement.matches(ICONS_TO_BLUR.join(',')) || pseudoElementIconFound) {
+                    if(pseudoElementIconFound) {
+                        scannedElement.dataset.pseudoFoundByDomScanner = true
+                    } else {
+                        scannedElement.dataset.iconFoundByDomScanner = true
+                    }
                 } else {
                     scannedElement.dataset.elementFoundByDomScanner = true
                 }
-                
             }
         }
     })
@@ -134,7 +139,7 @@ function unbindEventListeners(elName) {
     // Make sure body exists
     if (!window.document.body) return;
 
-    let els = window.document.body.querySelectorAll(ATTR_TO_BLUR_ELEMENT.concat(ATTR_TO_BLUR_ICON).join(','))
+    let els = window.document.body.querySelectorAll(ATTR_TO_BLUR_ELEMENT.concat(ATTR_TO_BLUR_ICON).concat(ATTR_TO_BLUR_PSEUDO).join(','))
 
     els.forEach((el) => {
         el.style.filter = el.defaultFilter
@@ -153,6 +158,10 @@ function BlurUnBlur(e) {
     currently_unhidden_elements.forEach((el) => {
         // if currently unhidden element is NOT hovered on, hide it.
         if (!hoveredOnElements.includes(el)) {
+
+            if(el.classList.contains('halal-web-pseudo-unhide')) {
+                el.classList.remove('halal-web-pseudo-unhide')
+            }
             // Element is not hovered on, so hide it.
             el.style.filter = el.defaultFilter
 
@@ -168,11 +177,13 @@ function BlurUnBlur(e) {
     // Unhide all hovered-on elements, marked with 'foundByDomScanner'
     hoveredOnElements.forEach((el) => {
         if(el.shadowRoot) {
-            // console.log(el)
         }
 
-        if(el.dataset.elementFoundByDomScanner || el.dataset.iconFoundByDomScanner) {
+        if(el.dataset.elementFoundByDomScanner || el.dataset.iconFoundByDomScanner || el.dataset.pseudoFoundByDomScanner) {
             if(e.ctrlKey && e.altKey) {
+                if(el.dataset.pseudoFoundByDomScanner) {
+                    el.classList.add('halal-web-pseudo-unhide')
+                }
                 el.style.setProperty('filter', 'blur(0px)', 'important')
                 currently_unhidden_elements.push(el)
             }
@@ -203,7 +214,8 @@ function unblurPage() {
     PAGE_BLURRED = !PAGE_BLURRED
 }
 
-function isDomainWhitelisted(domainsArray) {
+function isDomainWhitelisted() {
+    let domainsArray = options?.whitelistedDomains
     return domainsArray?.length > 0 && domainsArray.includes(window.location.hostname)
 }
 
@@ -211,73 +223,101 @@ function getPageUrl() {
     return window.location
 }
 
-function whitelistDomain() {
+async function whitelistDomain() {
     let domainToWhitelist = window.location.hostname
 
-    // Initialize an empty array
-    let whitelistedDomains = []
     // Grab whitelisted domains from storage
-    chrome.storage.sync.get(['whitelistedDomains']).then((res) => {
-        if(res.whitelistedDomains) {
-            whitelistedDomains = res.whitelistedDomains
-        }
+    // push new domain to whitelistedDomains
+    if(!options?.whitelistedDomains.includes(domainToWhitelist)) {
+        options.whitelistedDomains.push(domainToWhitelist)
+    }
 
-        // push new domain to whitelistedDomains
-        if(!whitelistedDomains.includes(domainToWhitelist)) {
-            whitelistedDomains.push(domainToWhitelist)
-        }
-
-        // Add domain to whitelisted domains
-        chrome.storage.sync.set({'whitelistedDomains': whitelistedDomains}).then((res) => {
-            if (PAGE_BLURRED) unblurPage()
-        })
-    })
+    // Add domain to whitelisted domains
+    updateOptions(options)
+    if (PAGE_BLURRED) unblurPage()
 }
 
-function dangerlistDomain() {
+async function dangerlistDomain() {
     let domainToDangerlist = window.location.hostname
+    // Remove domain from whitelistedDomains
+    let domainIndex = options.whitelistedDomains.indexOf(domainToDangerlist)
+    if (domainIndex > -1 ) options.whitelistedDomains.splice(domainIndex, 1)
 
-    // Initialize an empty array
-    let whitelistedDomains = []
-    // Grab whitelisted domains from storage
-    chrome.storage.sync.get(['whitelistedDomains']).then((res) => {
-        if(res.whitelistedDomains) {
-            whitelistedDomains = res.whitelistedDomains
-        }
+    // Add domain to whitelisted domains
+    updateOptions(options)
 
-        // Remove domain from whitelistedDomains
-            let domainIndex = whitelistedDomains.indexOf(domainToDangerlist)
-            if (domainIndex > -1 ) whitelistedDomains.splice(domainIndex, 1)
+    if (!PAGE_BLURRED) blurPage()
 
-        // Add domain to whitelisted domains
-        chrome.storage.sync.set({'whitelistedDomains': whitelistedDomains}).then((res) => {
-            if (!PAGE_BLURRED) blurPage()
-        })
-    })
+}
 
+function whitelistGoogleMaps() {
+    if((window.location.hostname + window.location.pathname).startsWith(GOOGLE_MAPS)){
+        ELEMENTS_TO_BLUR.splice(ELEMENTS_TO_BLUR.indexOf('canvas'), 1)
+    }
+}
+
+async function updateCssBlur () {
+    removeBlurCSS()
+    addBlurCSS(options?.blurAmount?.element, options?.blurAmount?.icon)
+}
+
+async function updateBlurElement (value) {
+    console.log('entered updateBlurElement')
+    if(!isDomainWhitelisted()) {
+        options.blurAmount.element = value
+        await updateOptions()
+        updateCssBlur(options)
+    }
+}
+
+async function updateBlurIcon (value) {
+    console.log('entered updateBlurIcon')
+    if(!isDomainWhitelisted()) {
+        console.log(options)
+        options.blurAmount.icon = value
+        console.log(options)
+        await updateOptions()
+        updateCssBlur(options)
+    }
+}
+
+async function updateOptions() {
+    await helper.setOptions(options)
+    options = await helper.getOptions()
 }
 
 // Initialize web page
-function init() {
-    // Get saved user options
-    chrome.storage.sync.get(['whitelistedDomains']).then((res)=> {
-        let domainWhitelisted = isDomainWhitelisted(res.whitelistedDomains)
-        // Blur page if domain is not white listed
-        if (!domainWhitelisted) {
-            if (!PAGE_BLURRED) blurPage()
-        } 
-    })
+async function init() {
+    // remove options and see if it initializes properly and if it returns the initialization variable
+    helper = new Helper()
+
+    // Initialize options if needed then retrieve from google api
+    options = await helper.getOptions(true)
+
+    // Blur page if domain is not white listed
+    if (!isDomainWhitelisted()) {
+        whitelistGoogleMaps()
+        if (!PAGE_BLURRED) blurPage()
+    } 
 }
 
-init()
+init()  
 window.onbeforeunload = () => stopDOMScanner()
 
 // Receive and respond to messages from the extension popup here
 chrome.runtime.onMessage.addListener(
     function(request, sender, sendResponse) {
         if (request) {
-            // console.log('action is to ', request.action)
             switch (request.action) {
+                case 'updateBlurIcon':
+                    updateBlurIcon(request.value)
+                    break;
+                case 'updateBlurElement':
+                    updateBlurElement(request.value)
+                    break;
+                case 'consoleLog':
+                    console.log(request.message)
+                    break
                 case 'blurUnblurPage':
                     blurUnblurPage()
                     break;

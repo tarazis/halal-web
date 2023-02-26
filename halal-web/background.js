@@ -1,9 +1,9 @@
 // background.js
 
-let BLUR_FLAG = true
 
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.sync.set({ BLUR_FLAG });
-});
+// TODO: initialize options on installed
+// chrome.runtime.onInstalled.addListener(() => {
+//   chrome.storage.sync.set({ options });
+// });
 
 
