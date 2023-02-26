@@ -37,7 +37,7 @@ Blur images/videos/icons that violate islamic teachings and moral values.
 - Support for mobile browsers
 - Safe mode requiring a password when blurring/unblurring
 - Permanent blur/unblur of specific elements on a webpage
-- Image recognition for smart detection of images/videos that violate islamic standards of `Tasweer`
+- Image recognition for smart detection of images/videos that violate islamic standards of `Tasweer` and `Thawat Al Arwah`
 
 ## Contact us
 Feel free to contact me with any suggestions or comments via email at `tarazis97@gmail.com`
