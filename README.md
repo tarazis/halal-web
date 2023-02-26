@@ -32,3 +32,12 @@ Blur images/videos/icons that violate islamic teachings and moral values.
     <img width="300" alt="pin" src="https://user-images.githubusercontent.com/35583330/221425325-abccc5e0-8ac0-4ef9-9ca8-48a2e6a67b96.PNG">
 
  8. Now you're ready to surf the web without compromising your Eemaan. 
+
+## Future upgrades coming up, inshaAllah:
+- Support for mobile browsers
+- Safe mode requiring a password when bluring/unbluring
+- Permanent blur/unblur of specific elements on a webpage
+- Image recognition to better select which images/videos to blur
+
+## Contact us
+Feel free to contact me with any suggestions or comments via email at `tarazis97@gmail.com`
