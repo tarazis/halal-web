@@ -7,7 +7,7 @@ Blur images/videos/icons that violate islamic teachings and moral values.
  <img width="500" alt="green button" src="https://user-images.githubusercontent.com/35583330/221423366-def4b5c8-4d88-4e73-a363-c238d1673fc0.PNG">
  Then:
 <img width="300" alt="downloadzip" src="https://user-images.githubusercontent.com/35583330/221424973-6a6303f1-061a-41f5-92e4-79a41197957a.PNG">
- 3. Open Google Chrome and navigate to `chrome://extensions`
+ 3. Open Google Chrome and navigate to `chrome://extensions` 
  4. Click `Load Unpacked`
 <img width="500" alt="load-unpacked" src="https://user-images.githubusercontent.com/35583330/221425135-7d061fad-f9e2-4544-8a27-387d3503f12a.PNG">
  5. Go to Halal Web directory and choose `src` folder
