@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Halal Web</title>
+    <link rel="stylesheet" href="popup.css">
+    <script src="helper.js"></script>
+
+  </head>
+  <body>
+    <p id="extension-title">Halal Web</p>
+    <div class="main-buttons">
+      <button id="blur-button">Blur/Unblur</button>
+      <div class="blur-sliders">
+        <p class="blur-labels">Blur level (images/videos):</p>
+        <input class="slider" type="range" id="blur-level-elements" name="blur-level-elements" min="0" max="100"/>
+        <!-- <span id="element-blur-amt">5px</span>
+         -->
+        <output name="elementBlurAmt" id="elementBlurAmt" for="blur-level-elements"></output>
+        <p class="blur-labels">Blur level (icons):</p>
+        <input class="slider" type="range" id="blur-level-icons" name="blur-level-icons" min="0" max="100"/>
+        <!-- <span id="icon-blur-amt"></span> -->
+        <output name="iconBlurAmt" id="iconBlurAmt" for="blur-level-icons"></output>
+
+      </div>
+
+      <!-- <input type="checkbox" id="extra-safe" name="extra-safe" value="extraSafe">
+      <label for="extra-safe">Extra Safe Mode</label> -->
+    </div>
+    <!-- <div class="media-options">
+      <p id="advanced-options">Advanced options:</p>
+      <input type="checkbox" id="images-checkbox" name="images-checkbox" value="imagesCheckbox">
+      <label for="extra-safe">Images</label>
+      <input type="checkbox" id="videos-checkbox" name="videos-checkbox" value="videosCheckbox">
+      <label for="extra-safe">Videos</label>
+      <input type="checkbox" id="icons-checkbox" name="icons-checkbox" value="iconsCheckbox">
+      <label for="extra-safe">Icons</label>
+      <input type="checkbox" id="iframe-checkbox" name="iframe-checkbox" value="iframeCheckbox">
+      <label for="extra-safe">Iframes</label>
+      <input type="checkbox" id="text-checkbox" name="text-checkbox" value="textCheckbox">
+      <label for="extra-safe">Text</label>
+    </div> -->
+    <hr>
+    </div>
+    <div class="website-settings">
+      <p id="domain">Loading..</p>
+      <div class="website-settings-btns">
+        <button id="whitelist-domain-btn">Whitelist domain</button>
+        <button id="dangerlist-domain-btn">Remove domain from whitelist</button>
+        <!-- <button id="whitelist-path-btn">Whitelist path</button> -->
+      </div>
+      <br><hr>
+      <p><span style="font-weight: bold;">Unblur:</span> Ctrl + Alt + Hover</p>
+
+    </div>
+
+
+    <script src="popup.js"></script>
+
+  </body>
+</html>

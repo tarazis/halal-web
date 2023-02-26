@@ -1,0 +1,4 @@
+.halal-web-pseudo-unhide::before, .halal-web-pseudo-unhide::after {
+    filter: blur(0px) !important;
+}
+

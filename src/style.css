@@ -1,0 +1,36 @@
+html {
+    background-color: blanchedalmond;
+}
+
+#div-background {
+    background-image: url("https://img.freepik.com/free-photo/cloud-sky-twilight-times_74190-4017.jpg?w=2000");
+    height: 300px;
+    width: 300px;
+}
+.main-wrapper h4 {
+    color: blue;
+}
+h1 {
+    font-weight: bold;
+}
+
+.center-text {
+    text-align: center;
+}
+
+/* #photos {
+    display: block;
+  } */
+  
+.column {
+    /* flex: 33.33%; */
+    padding: 1px;
+  }
+
+  .before::before {
+    font-family: "Font Awesome 5 Free"; font-weight: 900; content: "\f015"
+  }
+  .after::after {
+    font-family: "Font Awesome 5 Free"; font-weight: 900; content: "\f015"
+  }
+
