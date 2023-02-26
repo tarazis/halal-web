@@ -11,7 +11,7 @@ Blur images/videos/icons that violate islamic teachings and moral values.
  4. Click `Load Unpacked`
 <img width="500" alt="load-unpacked" src="https://user-images.githubusercontent.com/35583330/221425135-7d061fad-f9e2-4544-8a27-387d3503f12a.PNG">
  5. Go to Halal Web directory and choose `src` folder
- Image coming soon..
+ <img width="471" alt="select-folder" src="https://user-images.githubusercontent.com/35583330/221427967-55196be9-6044-4d4c-a962-7e426529dc77.PNG">
  6. After it's installed, click `Details`
  <img width="300" alt="details" src="https://user-images.githubusercontent.com/35583330/221425131-384020c6-b100-427f-b41a-eaa521571a16.PNG">
  7. Enable incognito mode
