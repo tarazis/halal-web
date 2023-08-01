@@ -2,3 +2,18 @@
     filter: blur(0px) !important;
 }
 
+i, span {
+    font-family:Arial, Helvetica, sans-serif !important;
+}
+
+*[style*="url"] {
+    visibility: hidden !important;
+}
+
+[data-background-image-found-by-dom-scanner="true"] {
+    background: #F5F5F5 !important;
+    background-color: #F5F5F5  !important;
+    background-image: #F5F5F5 !important;
+}
+
+

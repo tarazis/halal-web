@@ -1,0 +1,19 @@
+- remove private browsing ghost
+
+- Make all content.css dynamic so you can just remove it dynamically
+- draw structure of code refactor code making it simple including what happens when:
+   - page blurs, unblurs, whitelist, dangerlist, change blur level
+   - will background images return to normal? they should.
+
+
+
+less priority
+- clean code, it's very messy especiialy structure of it
+- fix performance using mutation observer
+- problem with keep.google.com:
+This document requires 'TrustedScript' assignment. This script element was modified without use of TrustedScript assignment.
+keep.google.com/:1 This document requires 'TrustedScript' assignment. An HTMLScriptElement was directly modified and will not be executed
+
+- Fix performance by:
+  - making mutation observer more efficient (making a list of visited nodes, seeing if there is overlap between added and mutated nodes, etc.)
+  - reducing blur level and increasing introducing opacity, since blurring makes things slow
