@@ -28,7 +28,9 @@ function addBlurCSS() {
     style.innerHTML += ATTR_TO_BLUR_ELEMENT.length > 0 ? ATTR_TO_BLUR_ELEMENT.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
     style.innerHTML += ATTR_TO_BLUR_ICON.length > 0 ? ATTR_TO_BLUR_ICON.join(',') + ` { filter: blur(${iconVal}px) !important; }` : ''
     style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + `{ filter: blur(${iconVal}px) !important; }` : ''
+    style.innerHTML += ATTR_TO_BLUR_BACKGROUND.length > 0 ? ATTR_TO_BLUR_BACKGROUND.join(',') + ` { background: #F5F5F5 !important; background-color: #F5F5F5 !important; background-image: #F5F5F5 !important; }` : ''
     style.innerHTML += '.halal-web-pseudo:before, .halal-web-pseudo:after { filter: blur(0px) !important; }'
+    style.innerHTML += 'i, span { font-family:Arial, Helvetica, sans-serif !important; } *[style*="url"] { visibility: hidden !important; } '
     let parentElement = document.documentElement
     parentElement.appendChild(style)
 }
