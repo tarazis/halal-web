@@ -28,7 +28,7 @@ function addBlurCSS() {
     style.innerHTML += ATTR_TO_BLUR_ELEMENT.length > 0 ? ATTR_TO_BLUR_ELEMENT.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
     style.innerHTML += ATTR_TO_BLUR_ICON.length > 0 ? ATTR_TO_BLUR_ICON.join(',') + ` { filter: blur(${iconVal}px) !important; }` : ''
     style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + `{ filter: blur(${iconVal}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_BACKGROUND.length > 0 ? ATTR_TO_BLUR_BACKGROUND.join(',') + ` { background: #F5F5F5 !important; background-color: #F5F5F5 !important; background-image: #F5F5F5 !important; }` : ''
+    style.innerHTML += ATTR_TO_BLUR_BACKGROUND.length > 0 ? ATTR_TO_BLUR_BACKGROUND.join(',') + ` { background: #F5F5F5 !important; background-color: #F5F5F5 !important; background-image: #F5F5F5 !important; color: black;}` : ''
     style.innerHTML += '.halal-web-pseudo:before, .halal-web-pseudo:after { filter: blur(0px) !important; }'
     style.innerHTML += 'i, span { font-family:Arial, Helvetica, sans-serif !important; } *[style*="url"] { visibility: hidden !important; } '
     let parentElement = document.documentElement
@@ -45,12 +45,8 @@ function removeBlurCSS() {
 // Scans DOM every 100 ms for new elements to be blurred
 const startDOMScanner = () => {
     document.addEventListener('mousemove', (e) => BlurUnBlur(e))
-
     // window.DOMScannerInterval = setInterval(() => {
     triggerDOMScanner()
-        // document.querySelectorAll('span:before').forEach((el) => {
-        // })
-    // }, 500)
 }
 
 // Stop DOM scanner
@@ -155,104 +151,13 @@ function traverseNode(changedNode) {
 
 // Bind event listeners to targeted elements
 function triggerDOMScanner() {
-
-    // // Make sure body exists
-    // if (!window.document.body) return;
-
-    // begin = performance.now();
-
-    // // Get all elements in body
-    // let els = window.document.body.querySelectorAll('*')
-
-    // // Loop through elements
-    // els.forEach((el) => {
-    //     let scannedElement = el
-    //     // Get element background image property
-    //     let elementBGStyle = window.getComputedStyle(scannedElement).getPropertyValue('background-image')
-
-    //     // Find pseudo elements with content != none
-    //     // and mark their parent element for later processing
-    //     let pseudoElementIconFound = false;
-    //     // let pseudoElement = window.getComputedStyle(scannedElement, '::before') || window.getComputedStyle(scannedElement, '::after')
-    //     let pseudoElementBefore = window.getComputedStyle(scannedElement, '::before')
-    //     let pseudoElementAfter = window.getComputedStyle(scannedElement, '::after')
-        
-    //     if(pseudoElementBefore != null || pseudoElementAfter != null) {
-    //         let contentBefore = pseudoElementBefore.getPropertyValue('content')
-    //         let contentAfter = pseudoElementAfter.getPropertyValue('content')
-    //         if(contentBefore != 'none' || contentAfter != 'none') {
-    //             pseudoElementIconFound = true
-    //         }
-    //     }
-
-    //     // if element is in 'elements to blur' or if it has a background image:
-    //     if (scannedElement.matches(ELEMENTS_TO_BLUR.concat(ICONS_TO_BLUR).join(',')) || elementBGStyle != 'none' || scannedElement.shadowRoot || pseudoElementIconFound) {
-    //         if(!scannedElement.dataset.elementFoundByDomScanner && !scannedElement.dataset.iconFoundByDomScanner && !scannedElement.dataset.pseudoFoundByDomScanner) {
-    //             // Save default filter
-    //             scannedElement.defaultFilter = scannedElement.style.filter
-    //             // Save default pointer event
-    //             scannedElement.defaultPointerevents = scannedElement.style.pointerEvents
-    //             // This is orgingally addded because some elements have pointer-events: none; which 
-    //             // prevents mousemove event to detect the element.
-    //             // The solution is to apply pointer-events: auto; to all elements.
-    //             // If this causes an issue, we can instead apply this only to elements with "pointer events: none;"
-    //             scannedElement.style.setProperty('pointer-events', 'auto')
-
-    //             // This is done because some shadow root elements use display: content, which removes all the children
-    //             // of the shadow root and puts them somewhere else on the DOM tree. As a result, the children of the shadow root
-    //             // do not get blurred along with the shadow root itself. Note: we can only blur the shadow root element only and not its children due to security reasons.
-    //             // Forcing display to be inline at all times ensures that the shadowroot elements will always be children of the shadow root and
-    //             // so they will be blurred by blurring the shadow root element itself.
-    //             if(scannedElement.shadowRoot) {
-    //                 scannedElement.style.setProperty('display', 'inline', 'important')
-    //             }
-
-    //             // Due to security reasons, iframes do not trigger mouse events. However, they trigger mouse enter and leave.
-    //             if(scannedElement.nodeName == 'IFRAME') {
-    //                 scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
-    //                 scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
-    //             }
-
-    //             // it could have both icon and pseudoelement
-    //             if(scannedElement.matches(ICONS_TO_BLUR.join(',')) || pseudoElementIconFound) {
-    //                 if(pseudoElementIconFound) {
-    //                     scannedElement.dataset.pseudoFoundByDomScanner = true
-    //                 } else {
-    //                     scannedElement.dataset.iconFoundByDomScanner = true
-    //                 }
-    //             } else if(elementBGStyle != 'none') {
-    //                 scannedElement.dataset.backgroundImageFoundByDomScanner = true
-    //             } else {
-    //                 scannedElement.dataset.elementFoundByDomScanner = true
-    //             }
-    //         }
-    //     }
-    // })
-    // end = performance.now();
-
-    // firstResult = end - begin;
-    // // console.log('time: ', firstResult)
-    /////////////////////////////
-
-
         // Observers nodes for: newly added nodes and changed nodes
         let observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
-                // 1) Check if added node has any change of interest:
-                // (emoji, background image, shadow root, img, etc.)
-                // v2: to avoid traversing an added node needlessly, keep a list of traversed nodes.
-                // 2) if added node does have a change of interest, start a tree walker for the added node and test each traversed node for a change of interest and apply algorithm on it.
-                // 3) Do the same for mutated nodes
-
                 // Note: each added node can have multiple child nodes; this is why we have to traverse it
                 // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
                 mutation.addedNodes.forEach((addedNode) => {
                     traverseNode(addedNode)
-                    // if(emoji.test(addedNode.textContent)) {
-                    //     removeEmojiText(addedNode)
-                    // }
-
-
                 })
     
                 // Remove emoji in mutated nodes that are not added nor removed
@@ -263,9 +168,6 @@ function triggerDOMScanner() {
                 if (mutation.oldValue != null) {
                     let mutatedNode = mutation.target
                     traverseNode(mutatedNode)
-                    // if(emoji.test(mutatedNode.textContent)) {
-                    //     removeEmojiText(mutatedNode)
-                    // }
                 }
             })
         })

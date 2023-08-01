@@ -1,12 +1,11 @@
 - draw structure of code refactor code making it simple including what happens when:
    - page blurs, unblurs, whitelist, dangerlist, change blur level
-   - will background images return to normal? they should.
-
 
 
 
 less priority
 - clean code, it's very messy especiialy structure of it
+- github code is blurred
 - fix performance using mutation observer
 - problem with keep.google.com:
 This document requires 'TrustedScript' assignment. This script element was modified without use of TrustedScript assignment.
