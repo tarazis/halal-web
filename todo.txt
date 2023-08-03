@@ -1,3 +1,4 @@
+- w3 schools iframe problem does not blur
 - draw structure of code refactor code making it simple including what happens when:
    - page blurs, unblurs, whitelist, dangerlist, change blur level
 

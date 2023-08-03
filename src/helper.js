@@ -25,7 +25,8 @@ class Helper {
                     console.error(chrome.runtime.lastError.message);
                     reject(chrome.runtime.lastError.message);
                 } else {
-                    // if options is null or the attribute halalWebOptions does not exist, then initialize options
+                    // if halalWebOptions has never been initialized (returns null), then initialize based on the above constant 'initialOptions'
+                    // then set it to the chrome storage, which will remember it locally and per profile as well
                     if((!res?.options || !res?.options?.halalWebOptions) && init) {
                         self.setOptions(initialOptions).then((res) => {
                             resolve(initialOptions)
