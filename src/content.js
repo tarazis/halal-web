@@ -8,12 +8,12 @@ const emoji = /\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}
 let options = null
 let helper = null
 let PAGE_BLURRED = false
-let ELEMENTS_TO_BLUR = ['img', 'image', 'picture', 'video', 'iframe', 'canvas', ':host']
+let ELEMENTS_TO_BLUR = ['img', 'image', 'video', 'iframe', 'canvas', '*[style*="url"]']
 let ICONS_TO_BLUR = ['svg', 'span[class*="icon-"]', ':before', ':after']
-let ATTR_TO_BLUR_ELEMENT = ['[data-element-found-by-dom-scanner="true"]']
-let ATTR_TO_BLUR_ICON = ['[data-icon-found-by-dom-scanner="true"]']
-let ATTR_TO_BLUR_PSEUDO = ['[data-pseudo-found-by-dom-scanner="true"]']
-let ATTR_TO_BLUR_BACKGROUND = ['[data-background-image-found-by-dom-scanner="true"]']
+let ATTR_TO_BLUR_ELEMENT = 'data-element-found-by-dom-scanner'
+let ATTR_TO_BLUR_ICON = 'data-icon-found-by-dom-scanner'
+let ATTR_TO_BLUR_PSEUDO = 'data-pseudo-found-by-dom-scanner'
+let ATTR_TO_REFRESH_NODE = 'data-refresh-node'
 
 // Keeps track of currently unhidden elements
 let currently_unhidden_elements = []
@@ -31,12 +31,11 @@ function addBlurCSS() {
 
     // all styles are added here
     style.innerHTML = ELEMENTS_TO_BLUR.length > 0 ? ELEMENTS_TO_BLUR.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_ELEMENT.length > 0 ? ATTR_TO_BLUR_ELEMENT.join(',') + ` { filter: blur(${elementVal}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_ICON.length > 0 ? ATTR_TO_BLUR_ICON.join(',') + ` { filter: blur(${iconVal}px) !important; }` : ''
-    style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') + `{ filter: blur(${iconVal}px) !important; }` : ''
-    style.innerHTML += ATTR_TO_BLUR_BACKGROUND.length > 0 ? ATTR_TO_BLUR_BACKGROUND.join(',') + ` { background: #EFEFEF !important; background-color: #EFEFEF !important; background-image: #EFEFEF !important; color: black;}` : ''
+    style.innerHTML += ICONS_TO_BLUR.length > 0 ? ICONS_TO_BLUR.join(',') +`{ filter: blur(${iconVal}px) !important; }` : ''
+    style.innerHTML += `[${ATTR_TO_BLUR_ELEMENT}="true"] { filter: blur(${elementVal}px) !important; }`
+    style.innerHTML += `[${ATTR_TO_BLUR_ICON}="true"] { filter: blur(${iconVal}px) !important; }`
     style.innerHTML += '.halal-web-pseudo:before, .halal-web-pseudo:after { filter: blur(0px) !important; }'
-    style.innerHTML += 'i, span { font-family:Arial, Helvetica, sans-serif !important; } *[style*="url"] { visibility: hidden !important; } '
+    style.innerHTML += `i, span { font-family:Arial, Helvetica, sans-serif !important; }`
     
     // Append style to document
     let parentElement = document.documentElement
@@ -60,24 +59,72 @@ const startDOMScanner = () => {
 
 // Stop DOM scanner
 const stopDOMScanner = () => {
-    this.clearInterval(window.DOMScannerInterval)
-    ELEMENTS_TO_BLUR.concat(ICONS_TO_BLUR).forEach((el) => unbindEventListeners(el)) 
-    // TODO: clear mouse move event listener
+    // disconnect observers
+    // myMutationObserver.disconnect()
+    // myResizeObserver.disconnect()
+
+    // Make sure body exists
+    if (!window.document.body) return;
+
+    // Get all elements and remove all halal web specific attributes and/or event listeners
+    // let allElements = document.getElementsByTagName('*')
+    // for(var i = 0; i < allElements.length; i++) {
+    //     let element = allElements[i]
+
+    //     // Remove halal web attributes
+    //     removeAttributes(element)
+
+    //     // unbind halal web event listeners
+    //     unbindEventListeners(element)
+    // }
+
+    // unbind event listeners for document
+    document.removeEventListener('mousemove', (e) => BlurUnBlur(e))
 }
 
 // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
-function traverseNode(changedNode) {
+function traverseNode(mutationRecord, mutation = false) {
+    // if mutation is false (default), changeRecord is the actual changed node
+    let changedNode = mutationRecord
+
     // Once node is found to contain a change (addition or mutation)
     // walk all children of the node and test wether this is a change of interest or not.
     // once a change of interest is found, apply to it the scanner algorithm
     // The algorithm is different for each element
 
     // Create a walker that traverses a node tree starting from the changed node.
-    const walker = document.createTreeWalker(changedNode, NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT);
+    let searchOption = NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT
 
+    // When observation is for mutated nodes (not added nor removed), then only look for text to remove emoji. This greatly improves performance.
+    if(mutation) searchOption = NodeFilter.SHOW_TEXT
+
+    // if mutation is true
+    // if(mutation) {
+    //     // if mutation is true, change record is the mutation record and not the mutated node.
+    //     if(mutationRecord.type == 'attributes') {
+    //         // do not do tree wlaker
+    //     } else if(mutationRecord.type == 'characterData') {
+    //         // do not do tree walker
+    //     } else {
+    //         // Do tree walker
+
+    //     }
+    // }
+
+    // let rootNode = changedNode.parentElement || changedNode
+    
+    const walker = document.createTreeWalker(changedNode, searchOption);
     // loop through each node. After every loop, update node to be the next node in the walker.
-    let node;
-    while ((node = walker.nextNode())) {
+
+    // counter for the loop
+    let j = 0
+    while (walker.nextNode()) {
+        // If first iteration and not mutation, start with previous node (which is really the root node)
+        // mutation is excepted here because we only traverse the root node if it was added. otherwise, we ar eonly concerened with children
+        // TODO: refactor code to just always start with root node instead of having to specifically call previous node.
+        if(j == 0 && !mutation) walker.previousNode()
+
+        let node = walker.currentNode
 
         // 1) Check for emoji and replace it with ''
         // make sure element is a text node so that we only replace text. Otherwise, we would be replacing whole elements that will mess up how the page looks.
@@ -96,11 +143,21 @@ function traverseNode(changedNode) {
             // Check for the rest of elements of interest
             // we could have continued with using 'node' without assigning it to another variable.. but this was old code so I kept it the same.
             let scannedElement = node
+            let elementIdentified = false;
 
-            // 2) Check for background image by accessing element property then give it an attribute 'backgroundImageFoundByDomScanner'
+            // 2) Check for background image by accessing element property
+            //    if so, stamp it with elementFound attribute
             let elementBGStyle = window.getComputedStyle(scannedElement).getPropertyValue('background-image')
 
-            // Reached here.
+            if(elementBGStyle != 'none') {
+                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+                elementIdentified = true
+            }
+            
+            // 3) Check if element has pseudo before/after attached to it
+            //    The check is done by first getting computed style ::before/::after to know if either exists
+            //    Then checking the 'content' property for either of them. If it's not 'none' then pseudo element exists and has 'content'
+            //    if so, stamp it with pseudo attribute. This stamps the element which contains the ::before/::after    
             let pseudoElementIconFound = false;
             let pseudoElementBefore = window.getComputedStyle(scannedElement, '::before')
             let pseudoElementAfter = window.getComputedStyle(scannedElement, '::after')
@@ -113,95 +170,197 @@ function traverseNode(changedNode) {
                 }
             }
 
-            // if element is in 'elements to blur' or if it has a background image:
-            if (scannedElement.matches(ELEMENTS_TO_BLUR.concat(ICONS_TO_BLUR).join(',')) || elementBGStyle != 'none' || scannedElement.shadowRoot || pseudoElementIconFound) {
-                if(!scannedElement.dataset.elementFoundByDomScanner && !scannedElement.dataset.iconFoundByDomScanner && !scannedElement.dataset.pseudoFoundByDomScanner) {
-                    // Save blur level for each element after the blur css is applied.
-                    // This will be later used when blurring/unblurring elements
-                    // This why when we blur/unblur elements we won't need to distinguish wether it's an icon or normal element
-                    scannedElement.halalWebFilter = scannedElement.style.filter
-                    // Save default pointer event
-                    scannedElement.defaultPointerevents = scannedElement.style.pointerEvents
-                    // This is orgingally addded because some elements have pointer-events: none; which 
-                    // prevents mousemove event to detect the element.
-                    // The solution is to apply pointer-events: auto; to all elements.
-                    // If this causes an issue, we can instead apply this only to elements with "pointer events: none;"
-                    scannedElement.style.setProperty('pointer-events', 'auto')
+            if(pseudoElementIconFound && !$(scannedElement).attr(ATTR_TO_BLUR_PSEUDO)) {
+                $(scannedElement).attr(ATTR_TO_BLUR_PSEUDO, true)
+                elementIdentified = true
+            }
 
-                    // This is done because some shadow root elements use display: content, which removes all the children
-                    // of the shadow root and puts them somewhere else on the DOM tree. As a result, the children of the shadow root
-                    // do not get blurred along with the shadow root itself. Note: we can only blur the shadow root element only and not its children due to security reasons.
-                    // Forcing display to be inline at all times ensures that the shadowroot elements will always be children of the shadow root and
-                    // so they will be blurred by blurring the shadow root element itself.
-                    if(scannedElement.shadowRoot) {
-                        scannedElement.style.setProperty('display', 'inline', 'important')
-                    }
-
-                    // Due to security reasons, iframes do not trigger mouse events. However, they trigger mouse enter and leave.
-                    if(scannedElement.nodeName == 'IFRAME') {
-                        scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
-                        scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
-                    }
-
-                    // it could have both icon and pseudoelement
-                    if(scannedElement.matches(ICONS_TO_BLUR.join(',')) || pseudoElementIconFound) {
-                        if(pseudoElementIconFound) {
-                            scannedElement.dataset.pseudoFoundByDomScanner = true
-                        } else {
-                            scannedElement.dataset.iconFoundByDomScanner = true
-                        }
-                    } else if(elementBGStyle != 'none') {
-                        scannedElement.dataset.backgroundImageFoundByDomScanner = true
-                    } else {
-                        scannedElement.dataset.elementFoundByDomScanner = true
-                    }
+            // 4) Check if element is in element_blur
+            //    if so, stamp it with elementFound attribute
+            if(scannedElement.matches(ELEMENTS_TO_BLUR.join(',')) && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
+                // check if iframe
+                //    if so, add mouse enter/leave events since iframes do not detect mouse events inside of them due to security reasons.
+                //    and stamp it with elementFound
+                if(scannedElement.nodeName == 'IFRAME') {
+                    scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
+                    scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
                 }
+                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+                elementIdentified = true
+            }
+
+            // 5) Check if element is in icon_blur
+            //    if so, stamp it with iconFound attribute
+            if(scannedElement.matches(ICONS_TO_BLUR.join(',')) && !$(scannedElement).attr(ATTR_TO_BLUR_ICON)) {
+                $(scannedElement).attr(ATTR_TO_BLUR_ICON, true)
+                elementIdentified = true
+            }
+
+            // TODO: uncomment if you need to incorprate shadowroots within this algorithm. Currently they are just being hidden using resize observer
+            // 6) check if element is shadow root
+            //    if so, set display to inline. This is to fix a bug where some websites separate the display of shadow root from its contents
+            //   and stamp it with elementFound
+            if(scannedElement.shadowRoot && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
+                scannedElement.style.setProperty('display', 'inline', 'important')
+                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+                elementIdentified = true
+            }
+
+            // Modify properties for each identified scanned element
+            if(elementIdentified) {
+                // Save blur level for each element after the blur css is applied.
+                // This will be later used when blurring/unblurring elements
+                // This why when we blur/unblur elements we won't need to distinguish wether it's an icon or normal element
+                scannedElement.halalWebFilter = scannedElement.style.filter
+                // Save default pointer event
+                scannedElement.defaultPointerevents = scannedElement.style.pointerEvents
+                // This is orgingally addded because some elements have pointer-events: none; which 
+                // prevents mousemove event to detect the element.
+                // The solution is to apply pointer-events: auto; to all elements.
+                // If this causes an issue, we can instead apply this only to elements with "pointer events: none;"
+                scannedElement.style.setProperty('pointer-events', 'auto')
             }
         }
+        j++
     }
 }
 
-// Observer document for any nodes that get added or changed
+// Observer document for any nodes that get added or changed or when document size changes
 // Bind event listeners to targeted elements
 function triggerDOMScanner() {
-        // Observe document nodes
-        let observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                // Note: each added node can have multiple child nodes; this is why we have to traverse it
-                // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
-                mutation.addedNodes.forEach((addedNode) => {
-                    traverseNode(addedNode)
-                })
-    
-                // Do the same for mutated nodes
-                if (mutation.oldValue != null) {
-                    let mutatedNode = mutation.target
-                    traverseNode(mutatedNode)
-                }
+    // Observe document nodes
+    // let observer = new MutationObserver((mutations) => {
+    //     mutations.forEach((mutation) => {
+    //         // Note: each added node can have multiple child nodes; this is why we have to traverse it
+    //         // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
+    //         mutation.addedNodes.forEach((addedNode) => {
+    //             traverseNode(addedNode)
+    //         })
+
+    //         // Do the same for mutated nodes
+    //         if (mutation.oldValue != null) {
+    //             let mutatedNode = mutation.target
+    //             traverseNode(mutatedNode)
+    //         }
+    //     })
+    // })
+
+    // Observe document nodes
+    const myMutationObserver = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            // Note: each added node can have multiple child nodes; this is why we have to traverse it
+            // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
+            mutation.addedNodes.forEach((addedNode) => {
+                traverseNode(addedNode)
             })
+
+            // Do the same for mutated nodes
+            if (mutation.oldValue != null) {
+                // let mutatedNode = mutation.target
+                // traverseNode(mutatedNode, true)
+                traverseNode(mutation, true)
+            }
         })
+    })
     
         // Config defines what the observer observes... I observe here everything. It might affect performance a bit.
         var config = {attributes: true, attributeOldValue: true, characterData: true, characterDataOldValue: true, childList: true, subtree: true }
-    
-        observer.observe(document, config)
+        
+        myMutationObserver.observe(document, config)
+
+        // resize observer detects when new elements gets added to document element changing its size
+        // This observer is only invoked to find shadowroots since there is no way to detect them by scanning the dom tree
+        // The only way to detect shadow roots is either to know the exact element or to detect appearance change on the webpage using this observer
+        // Once the observer detects an appearance change, we scan all DOM nodes to find the shadow root and we hide it.
+        // Apply resize observer on shadowroot and iframe because they are not easily detected by mutation observer due to security reasons.
+        // const resizeObserver = new ResizeObserver(entries => {
+        //         let allElements = document.getElementsByTagName('*')
+        //         for (var i = 0; i < allElements.length; i++) {
+        //             if(allElements[i].shadowRoot) {
+        //                 // allElements[i].style.setProperty('display', 'none', 'important')
+        //                 allElements[i].setAttribute('halal-web', false)
+        //                 allElements[i].setAttribute('halal-web', true)
+        //             }
+
+        //             if(allElements[i].nodeName == 'IFRAME') {
+        //                 // mutate object
+        //                 allElements[i].parentElement?.setAttribute('halal-web', false)
+        //                 allElements[i].parentElement?.setAttribute('halal-web', true)
+        //             } 
+        //         }
+        // });
+
+    // resize observer detects when new elements gets added to document element changing its size
+    // This observer is only invoked to find shadowroots since there is no way to detect them by scanning the dom tree
+    // The only way to detect shadow roots is either to know the exact element or to detect appearance change on the webpage using this observer
+    // Once the observer detects an appearance change, we scan all DOM nodes to find the shadow root and we hide it.
+    // Apply resize observer on shadowroot and iframe because they are not easily detected by mutation observer due to security reasons.
+    const myResizeObserver = new ResizeObserver(entries => {
+        let allElements = document.getElementsByTagName('*')
+        for (var i = 0; i < allElements.length; i++) {
+            if(allElements[i].shadowRoot) {
+                allElements[i].style.setProperty('display', 'none', 'important')
+                // $(allElements[i]).attr(ATTR_TO_REFRESH_NODE, true)
+                // $(allElements[i]).removeAttr(ATTR_TO_REFRESH_NODE)
+            }
+
+            if(allElements[i].nodeName == 'IFRAME') {
+                // mutate object
+                // $(allElements[i].parentElement)?.attr(ATTR_TO_REFRESH_NODE, true)
+                // $(allElements[i].parentElement)?.removeAttr(ATTR_TO_REFRESH_NODE)
+            } 
+        }
+    });
+
+
+    // myResizeObserver.observe(document.documentElement)
+
+        // should I refresh all nodes? or how does it work.
+        // refreshDOM()
 }
 
-function unbindEventListeners(elName) {
-    // Make sure body exists
-    if (!window.document.body) return;
+// function refreshElement() {
 
-    let els = window.document.body.querySelectorAll(ATTR_TO_BLUR_ELEMENT.concat(ATTR_TO_BLUR_ICON).concat(ATTR_TO_BLUR_PSEUDO).concat(ATTR_TO_BLUR_BACKGROUND).join(','))
+// }
 
-    els.forEach((el) => {
-        // el.style.filter = el.halalWebFilter
-        el.style.setProperty('filter', 'blur(0px)', '!important')
-        // Does this properly defaults the pointe event? or do I need 'setProperty?'
-        el.style.pointerEvents = el.defaultPointerEvents
-        el.elementFoundByDomScanner = false;
-        el.iconFoundByDomScanner = false;
-        // el.dataset.backgroundImageFoundByDomScanner = false;
+// Refresh dom by adding/removing an attribute which will trigger observers all over again
+function refreshDOM() {
+    let allElements = document.getElementsByTagName('*')
+    for (var i = 0; i < allElements.length; i++) {
+        let element = allElements[i]
+        $(element).attr(ATTR_TO_REFRESH_NODE, true)
+        $(element).attr(ATTR_TO_REFRESH_NODE, false)
+    }
+
+}
+
+// returns array of halal web attributes
+function getHalalWebAttributes() {
+    return (ATTR_TO_BLUR_ELEMENT + ',' + ATTR_TO_BLUR_ICON + ',' + ATTR_TO_BLUR_PSEUDO  + ',' + ATTR_TO_REFRESH_NODE).split(',')
+}
+
+// Remove all Halal web attributes
+function removeAttributes(element) {
+    // get all attributes
+    let attributes = getHalalWebAttributes()
+    console.log(attributes)
+
+    // for each attribute, if the element has it, remove it
+    attributes.forEach((attr) => {
+        if($(element).attr(attr)) {
+            $(element).removeAttr(attr)
+        }
     })
+}
+
+function unbindEventListeners(element) {
+    // element.style.setProperty('filter', 'blur(0px)', '!important')
+    element.style.pointerEvents = element.defaultPointerEvents
+    if(element.nodeName == 'IFRAME') {
+        element.removeEventListener('mouseenter', (e) => BlurUnBlur(e))
+        element.removeEventListener('mouseLeave', (e) => BlurUnBlur(e))
+    }
+
 }
 
 // Blur or Unblur specific elements when hovered/unhovered on 
@@ -231,11 +390,11 @@ function BlurUnBlur(e) {
 
     // Unhide all hovered-on elements, marked with 'foundByDomScanner'
     hoveredOnElements.forEach((el) => {
-        if(el.dataset.elementFoundByDomScanner || el.dataset.iconFoundByDomScanner || el.dataset.pseudoFoundByDomScanner) {
+        if($(el).attr(ATTR_TO_BLUR_ELEMENT) || $(el).attr(ATTR_TO_BLUR_ICON) || $(el).attr(ATTR_TO_BLUR_PSEUDO)) {
             // if ctrl and alt key are pressed then unhide
             if(e.ctrlKey && e.altKey) {
                 // pseudo elements unhide using css classes because their properties cannot be dynamically accessed.
-                if(el.dataset.pseudoFoundByDomScanner) {
+                if($(el).attr(ATTR_TO_BLUR_PSEUDO)) {
                     el.classList.add('halal-web-pseudo-unhide')
                 }
                 // other elements other than pseudo are unhidden by accessing their property
@@ -272,8 +431,13 @@ function blurPage() {
 
 function unblurPage() {
     console.log('removing blur...')
+
+    // Remove blur css
     removeBlurCSS()
+
+    // Stop DOM scanner
     stopDOMScanner()
+
     PAGE_BLURRED = !PAGE_BLURRED
 }
 
