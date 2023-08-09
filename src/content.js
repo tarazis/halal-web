@@ -13,6 +13,7 @@ let ICONS_TO_BLUR = ['svg', 'span[class*="icon-"]', ':before', ':after']
 let ATTR_TO_BLUR_ELEMENT = 'data-element-found-by-dom-scanner'
 let ATTR_TO_BLUR_ICON = 'data-icon-found-by-dom-scanner'
 let ATTR_TO_BLUR_PSEUDO = 'data-pseudo-found-by-dom-scanner'
+let ATTR_SCANNED = 'data-scanned-by-halal-web'
 let ATTR_TO_REFRESH_NODE = 'data-refresh-node'
 
 // Keeps track of currently unhidden elements
@@ -66,229 +67,222 @@ const stopDOMScanner = () => {
     // Make sure body exists
     if (!window.document.body) return;
 
-    // Get all elements and remove all halal web specific attributes and/or event listeners
-    // let allElements = document.getElementsByTagName('*')
-    // for(var i = 0; i < allElements.length; i++) {
-    //     let element = allElements[i]
-
-    //     // Remove halal web attributes
-    //     removeAttributes(element)
-
-    //     // unbind halal web event listeners
-    //     unbindEventListeners(element)
-    // }
-
     // unbind event listeners for document
     document.removeEventListener('mousemove', (e) => BlurUnBlur(e))
 }
 
-// To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
-function traverseNode(mutationRecord, mutation = false) {
-    // if mutation is false (default), changeRecord is the actual changed node
-    let changedNode = mutationRecord
+function processEmojiNode(node) {
+    // Grab node value and replace any instance of emojis with ''
+    const text = node.nodeValue;
+    const newText = text.replace(emoji, '');
+    // if text has changed and it did indeed contain an emoji, update nodevalue with the newly replaced text
+    if (text !== newText && emoji.test(text)) {
+        node.nodeValue = newText;
+    }
+}
 
-    // Once node is found to contain a change (addition or mutation)
-    // walk all children of the node and test wether this is a change of interest or not.
-    // once a change of interest is found, apply to it the scanner algorithm
-    // The algorithm is different for each element
+function processElementNode(node) {
+    // Check for the rest of elements of interest
+    // we could have continued with using 'node' without assigning it to another variable.. but this was old code so I kept it the same.
+    let scannedElement = node
+    let elementIdentified = false;
 
-    // Create a walker that traverses a node tree starting from the changed node.
+    // 2) Check for background image by accessing element property
+    //    if so, stamp it with elementFound attribute
+    let elementBGStyle = window.getComputedStyle(scannedElement).getPropertyValue('background-image')
+
+    if(elementBGStyle != 'none' && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
+        $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+        elementIdentified = true
+    }
+    
+    // 3) Check if element has pseudo before/after attached to it
+    //    The check is done by first getting computed style ::before/::after to know if either exists
+    //    Then checking the 'content' property for either of them. If it's not 'none' then pseudo element exists and has 'content'
+    //    if so, stamp it with pseudo attribute. This stamps the element which contains the ::before/::after    
+    let pseudoElementIconFound = false;
+    let pseudoElementBefore = window.getComputedStyle(scannedElement, '::before')
+    let pseudoElementAfter = window.getComputedStyle(scannedElement, '::after')
+    
+    if(pseudoElementBefore != null || pseudoElementAfter != null) {
+        let contentBefore = pseudoElementBefore.getPropertyValue('content')
+        let contentAfter = pseudoElementAfter.getPropertyValue('content')
+        if(contentBefore != 'none' || contentAfter != 'none') {
+            pseudoElementIconFound = true
+        }
+    }
+
+    if(pseudoElementIconFound && !$(scannedElement).attr(ATTR_TO_BLUR_PSEUDO)) {
+        $(scannedElement).attr(ATTR_TO_BLUR_PSEUDO, true)
+        elementIdentified = true
+    }
+
+    // 4) Check if element is in element_blur
+    //    if so, stamp it with elementFound attribute
+    if(scannedElement.matches(ELEMENTS_TO_BLUR) && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
+        // check if iframe
+        //    if so, add mouse enter/leave events since iframes do not detect mouse events inside of them due to security reasons.
+        //    and stamp it with elementFound
+        if(scannedElement.nodeName == 'IFRAME') {
+            scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
+            scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
+        }
+        $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+        elementIdentified = true
+    }
+
+    // 5) Check if element is in icon_blur
+    //    if so, stamp it with iconFound attribute
+    if(scannedElement.matches(ICONS_TO_BLUR) && !$(scannedElement).attr(ATTR_TO_BLUR_ICON)) {
+        $(scannedElement).attr(ATTR_TO_BLUR_ICON, true)
+        elementIdentified = true
+    }
+
+    // TODO: uncomment if you need to incorprate shadowroots within this algorithm. Currently they are just being hidden using resize observer
+    // 6) check if element is shadow root
+    //    if so, set display to inline. This is to fix a bug where some websites separate the display of shadow root from its contents
+    //   and stamp it with elementFound
+    if(scannedElement.shadowRoot && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
+        scannedElement.style.setProperty('display', 'inline', 'important')
+        $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
+        elementIdentified = true
+    }
+
+    // // Modify properties for each identified scanned element
+    if(elementIdentified) {
+        // TODO: is this just an undefined value?! I think what manages blurring/unblurring is the data attributes
+        // Save blur level for each element after the blur css is applied.
+        // This will be later used when blurring/unblurring elements
+        // This why when we blur/unblur elements we won't need to distinguish wether it's an icon or normal element
+        scannedElement.halalWebFilter = scannedElement.style.filter
+        // Save default pointer event
+        scannedElement.defaultPointerevents = scannedElement.style.pointerEvents
+        // This is orgingally addded because some elements have pointer-events: none; which 
+        // prevents mousemove event to detect the element.
+        // The solution is to apply pointer-events: auto; to all elements.
+        // If this causes an issue, we can instead apply this only to elements with "pointer events: none;"
+        scannedElement.style.setProperty('pointer-events', 'auto')
+    }
+
+}
+
+function isHalalWebElement(element) {
+    return element.nodeType == Node.ELEMENT_NODE &&
+    ($(element).attr(ATTR_TO_BLUR_ELEMENT) ||
+    $(element).attr(ATTR_TO_BLUR_ICON) ||
+    $(element).attr(ATTR_TO_BLUR_PSEUDO)
+    )
+}
+
+function addedNodeTraversal(addedNode) {
+    // Search for specific type of nodes: elements and text. This limits search range and improves performance
+    let searchOption = NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT
+    traverseNodes(addedNode, searchOption)
+    
+}
+
+function mutatedNodeTraversal(mutationRecord) {
+    // search option
     let searchOption = NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT
 
-    // When observation is for mutated nodes (not added nor removed), then only look for text to remove emoji. This greatly improves performance.
-    if(mutation) searchOption = NodeFilter.SHOW_TEXT
+    // Access the changedNode through the target property
+    changedNode = mutationRecord.target
 
-    // if mutation is true
-    // if(mutation) {
-    //     // if mutation is true, change record is the mutation record and not the mutated node.
-    //     if(mutationRecord.type == 'attributes') {
-    //         // do not do tree wlaker
-    //     } else if(mutationRecord.type == 'characterData') {
-    //         // do not do tree walker
-    //     } else {
-    //         // Do tree walker
+    // For attributes and characterData mutation type: process only mutated node (no traversal of children)
+    if(mutationRecord.type == 'attributes' || mutationRecord.type == 'characterData') {
+        // process emoji node
+        if (changedNode.nodeType == Node.TEXT_NODE) {
+            processEmojiNode(changedNode)
+        }
 
-    //     }
-    // }
+        //  Process element node (causes performance issues for now)
+        // TODO
+        if(changedNode.nodeType == Node.ELEMENT_NODE) {
+            // processElementNode(changedNode)
+        }
 
-    // let rootNode = changedNode.parentElement || changedNode
-    
+        // Done.
+        return;
+
+    } else { // For childList mutation:
+        // For childlist mutation type: process the changed node along with its children via the walker below
+        // except for element nodes, skip for now due to performance issues.
+
+        if(changedNode.nodeType == Node.TEXT_NODE) {
+            traverseNodes(changedNode, searchOption)
+        }
+
+        // Should also traverse nodes but delete for now.
+        // TODO
+        if(changedNode.nodeType == Node.ELEMENT_NODE) {
+            // traverseNodes(changedNode, searchOption)
+        }
+    }
+
+}
+
+function traverseNodes(changedNode, searchOption) {
+    // Create a walker rooted at the newly added node
     const walker = document.createTreeWalker(changedNode, searchOption);
-    // loop through each node. After every loop, update node to be the next node in the walker.
 
+    // Start from the root node and apply the halal web algorithm to it and its children
     // counter for the loop
     let j = 0
+    // Automatically iterate to next node.. TODO: need to refactor this to start from root.
     while (walker.nextNode()) {
-        // If first iteration and not mutation, start with previous node (which is really the root node)
-        // mutation is excepted here because we only traverse the root node if it was added. otherwise, we ar eonly concerened with children
-        // TODO: refactor code to just always start with root node instead of having to specifically call previous node.
-        if(j == 0 && !mutation) walker.previousNode()
+        // console.log('walker iteration...')
+        // console.log('j = ', j)
+        // The while loop implenetation skips root node so we need to start from previous node.
+        // This line can be removed if we refactor our implementation to always start from root node.
+        // Note: for mutation traversals, no need to start from the root.
+        if (j == 0) walker.previousNode()
 
         let node = walker.currentNode
+        // console.log('node in iteration: ', node)
 
         // 1) Check for emoji and replace it with ''
         // make sure element is a text node so that we only replace text. Otherwise, we would be replacing whole elements that will mess up how the page looks.
         if (node.nodeType == Node.TEXT_NODE) {
-            // Grab node value and replace any instance of emojis with ''
-            const text = node.nodeValue;
-            const newText = text.replace(emoji, '');
-            // if text has changed and it did indeed contain an emoji, update nodevalue with the newly replaced text
-            if (text !== newText && emoji.test(text)) {
-                node.nodeValue = newText;
-            }
+           processEmojiNode(node)
         }
 
+        // 2) Check for target element nodes
         // Make sure node is an element so we only replace elements and not other nodes like document and others.
         if(node.nodeType == Node.ELEMENT_NODE) {
-            // Check for the rest of elements of interest
-            // we could have continued with using 'node' without assigning it to another variable.. but this was old code so I kept it the same.
-            let scannedElement = node
-            let elementIdentified = false;
-
-            // 2) Check for background image by accessing element property
-            //    if so, stamp it with elementFound attribute
-            let elementBGStyle = window.getComputedStyle(scannedElement).getPropertyValue('background-image')
-
-            if(elementBGStyle != 'none') {
-                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
-                elementIdentified = true
-            }
-            
-            // 3) Check if element has pseudo before/after attached to it
-            //    The check is done by first getting computed style ::before/::after to know if either exists
-            //    Then checking the 'content' property for either of them. If it's not 'none' then pseudo element exists and has 'content'
-            //    if so, stamp it with pseudo attribute. This stamps the element which contains the ::before/::after    
-            let pseudoElementIconFound = false;
-            let pseudoElementBefore = window.getComputedStyle(scannedElement, '::before')
-            let pseudoElementAfter = window.getComputedStyle(scannedElement, '::after')
-            
-            if(pseudoElementBefore != null || pseudoElementAfter != null) {
-                let contentBefore = pseudoElementBefore.getPropertyValue('content')
-                let contentAfter = pseudoElementAfter.getPropertyValue('content')
-                if(contentBefore != 'none' || contentAfter != 'none') {
-                    pseudoElementIconFound = true
-                }
-            }
-
-            if(pseudoElementIconFound && !$(scannedElement).attr(ATTR_TO_BLUR_PSEUDO)) {
-                $(scannedElement).attr(ATTR_TO_BLUR_PSEUDO, true)
-                elementIdentified = true
-            }
-
-            // 4) Check if element is in element_blur
-            //    if so, stamp it with elementFound attribute
-            if(scannedElement.matches(ELEMENTS_TO_BLUR.join(',')) && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
-                // check if iframe
-                //    if so, add mouse enter/leave events since iframes do not detect mouse events inside of them due to security reasons.
-                //    and stamp it with elementFound
-                if(scannedElement.nodeName == 'IFRAME') {
-                    scannedElement.addEventListener('mouseenter', (e) => BlurUnBlur(e))
-                    scannedElement.addEventListener('mouseLeave', (e) => BlurUnBlur(e))
-                }
-                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
-                elementIdentified = true
-            }
-
-            // 5) Check if element is in icon_blur
-            //    if so, stamp it with iconFound attribute
-            if(scannedElement.matches(ICONS_TO_BLUR.join(',')) && !$(scannedElement).attr(ATTR_TO_BLUR_ICON)) {
-                $(scannedElement).attr(ATTR_TO_BLUR_ICON, true)
-                elementIdentified = true
-            }
-
-            // TODO: uncomment if you need to incorprate shadowroots within this algorithm. Currently they are just being hidden using resize observer
-            // 6) check if element is shadow root
-            //    if so, set display to inline. This is to fix a bug where some websites separate the display of shadow root from its contents
-            //   and stamp it with elementFound
-            if(scannedElement.shadowRoot && !$(scannedElement).attr(ATTR_TO_BLUR_ELEMENT)) {
-                scannedElement.style.setProperty('display', 'inline', 'important')
-                $(scannedElement).attr(ATTR_TO_BLUR_ELEMENT, true)
-                elementIdentified = true
-            }
-
-            // Modify properties for each identified scanned element
-            if(elementIdentified) {
-                // Save blur level for each element after the blur css is applied.
-                // This will be later used when blurring/unblurring elements
-                // This why when we blur/unblur elements we won't need to distinguish wether it's an icon or normal element
-                scannedElement.halalWebFilter = scannedElement.style.filter
-                // Save default pointer event
-                scannedElement.defaultPointerevents = scannedElement.style.pointerEvents
-                // This is orgingally addded because some elements have pointer-events: none; which 
-                // prevents mousemove event to detect the element.
-                // The solution is to apply pointer-events: auto; to all elements.
-                // If this causes an issue, we can instead apply this only to elements with "pointer events: none;"
-                scannedElement.style.setProperty('pointer-events', 'auto')
-            }
+            processElementNode(node)
         }
+
+        // increment counter
         j++
     }
+    // if(j > 0) console.log('walker ended..!')
+    j = 0
 }
 
 // Observer document for any nodes that get added or changed or when document size changes
 // Bind event listeners to targeted elements
 function triggerDOMScanner() {
     // Observe document nodes
-    // let observer = new MutationObserver((mutations) => {
-    //     mutations.forEach((mutation) => {
-    //         // Note: each added node can have multiple child nodes; this is why we have to traverse it
-    //         // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
-    //         mutation.addedNodes.forEach((addedNode) => {
-    //             traverseNode(addedNode)
-    //         })
-
-    //         // Do the same for mutated nodes
-    //         if (mutation.oldValue != null) {
-    //             let mutatedNode = mutation.target
-    //             traverseNode(mutatedNode)
-    //         }
-    //     })
-    // })
-
-    // Observe document nodes
     const myMutationObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             // Note: each added node can have multiple child nodes; this is why we have to traverse it
             // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
             mutation.addedNodes.forEach((addedNode) => {
-                traverseNode(addedNode)
+                addedNodeTraversal(addedNode)
             })
 
-            // Do the same for mutated nodes
+            // if mutation happens, traverse it too according to certain mutation types
             if (mutation.oldValue != null) {
-                // let mutatedNode = mutation.target
-                // traverseNode(mutatedNode, true)
-                traverseNode(mutation, true)
+                let mutationRecord = mutation
+                mutatedNodeTraversal(mutationRecord)
             }
         })
     })
     
-        // Config defines what the observer observes... I observe here everything. It might affect performance a bit.
-        var config = {attributes: true, attributeOldValue: true, characterData: true, characterDataOldValue: true, childList: true, subtree: true }
-        
-        myMutationObserver.observe(document, config)
-
-        // resize observer detects when new elements gets added to document element changing its size
-        // This observer is only invoked to find shadowroots since there is no way to detect them by scanning the dom tree
-        // The only way to detect shadow roots is either to know the exact element or to detect appearance change on the webpage using this observer
-        // Once the observer detects an appearance change, we scan all DOM nodes to find the shadow root and we hide it.
-        // Apply resize observer on shadowroot and iframe because they are not easily detected by mutation observer due to security reasons.
-        // const resizeObserver = new ResizeObserver(entries => {
-        //         let allElements = document.getElementsByTagName('*')
-        //         for (var i = 0; i < allElements.length; i++) {
-        //             if(allElements[i].shadowRoot) {
-        //                 // allElements[i].style.setProperty('display', 'none', 'important')
-        //                 allElements[i].setAttribute('halal-web', false)
-        //                 allElements[i].setAttribute('halal-web', true)
-        //             }
-
-        //             if(allElements[i].nodeName == 'IFRAME') {
-        //                 // mutate object
-        //                 allElements[i].parentElement?.setAttribute('halal-web', false)
-        //                 allElements[i].parentElement?.setAttribute('halal-web', true)
-        //             } 
-        //         }
-        // });
+    // Config defines what the observer observes... I observe here everything. It might affect performance a bit.
+    var config = {attributes: true, attributeOldValue: true, characterData: true, characterDataOldValue: true, childList: true, subtree: true }
+    
+    myMutationObserver.observe(document, config)
 
     // resize observer detects when new elements gets added to document element changing its size
     // This observer is only invoked to find shadowroots since there is no way to detect them by scanning the dom tree
@@ -315,8 +309,8 @@ function triggerDOMScanner() {
 
     // myResizeObserver.observe(document.documentElement)
 
-        // should I refresh all nodes? or how does it work.
-        // refreshDOM()
+    // should I refresh all nodes? or how does it work.
+    // refreshDOM()
 }
 
 // function refreshElement() {
@@ -343,7 +337,7 @@ function getHalalWebAttributes() {
 function removeAttributes(element) {
     // get all attributes
     let attributes = getHalalWebAttributes()
-    console.log(attributes)
+    // console.log(attributes)
 
     // for each attribute, if the element has it, remove it
     attributes.forEach((attr) => {
@@ -378,7 +372,7 @@ function BlurUnBlur(e) {
             if(el.classList.contains('halal-web-pseudo-unhide')) {
                 el.classList.remove('halal-web-pseudo-unhide')
             }
-            // hide it
+            // hide it // TODO: is this just an undefined value?
             el.style.filter = el.halalWebFilter
 
             // Element is now hidden, so remove element from 'currently unhidden elements'
