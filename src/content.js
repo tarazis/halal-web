@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+console.log = function() {}
+
 const GOOGLE_MAPS = 'www.google.com/maps'
 const emoji = /\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}|\p{Emoji}\uFE0F/gu;
 
@@ -86,6 +88,9 @@ function processElementNode(node) {
     // we could have continued with using 'node' without assigning it to another variable.. but this was old code so I kept it the same.
     let scannedElement = node
     let elementIdentified = false;
+
+    // Remove halal web attributes if found by default. (this is because some elements may be mutated to no longer contain halal web targets)
+    removeHalalWebAttributes(scannedElement)
 
     // 2) Check for background image by accessing element property
     //    if so, stamp it with elementFound attribute
@@ -175,6 +180,9 @@ function isHalalWebElement(element) {
 }
 
 function addedNodeTraversal(addedNode) {
+    console.log('!!! processing Added node mutation !!!')
+    // console.log('node added!')
+    // console.log(addedNode)
     // Search for specific type of nodes: elements and text. This limits search range and improves performance
     let searchOption = NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT
     traverseNodes(addedNode, searchOption)
@@ -188,35 +196,72 @@ function mutatedNodeTraversal(mutationRecord) {
     // Access the changedNode through the target property
     changedNode = mutationRecord.target
 
+    // console.log('node mutated!')
+    // console.log(mutationRecord.target)
+    // console.log(mutationRecord.type)
+    // console.log(mutationRecord.attributeName)
+    // console.log(mutationRecord.oldValue)
+    
+
     // For attributes and characterData mutation type: process only mutated node (no traversal of children)
+    // TODO: v2 double check if changes in attributes and/or characterData do not need traversal of children? may en element was changed characterData and its child is a text node?
     if(mutationRecord.type == 'attributes' || mutationRecord.type == 'characterData') {
-        // process emoji node
+        console.log('!!! processing attribute/characterData mutation !!!')
+        console.log(changedNode)
+        // process emoji node when mutationRecord is characterData, since text nodes have no attributes.
         if (changedNode.nodeType == Node.TEXT_NODE) {
+            // console.log('processing emoji replacement')
+            // console.log(mutationRecord.type)
+            // console.log('Text node will be processed...')
+            // console.log(changedNode)
             processEmojiNode(changedNode)
+
         }
 
-        //  Process element node (causes performance issues for now)
-        // TODO
-        if(changedNode.nodeType == Node.ELEMENT_NODE) {
-            // processElementNode(changedNode)
+        //  Process element node when mutationRecord is attributes or characterData
+        // If an element has a mutation of style or halal-web specific atributes, skip traversal for this node, otherwise process it.
+        // we skip style and halal web attribute changes because they create performance issue.
+        // TODO: v2 BUG: what if there is a style attribute change that addes a background image to a div? this won't be processed here and as a result will not blur the image!!!!
+        //               but the chances of this happening is rare.
+
+        if(changedNode.nodeType == Node.ELEMENT_NODE && mutationRecord.attributeName != 'style' && !getHalalWebAttributes().includes(mutationRecord.attributeName)) {
+            // console.log('elementNode will be processed...')
+            // console.log(changedNode)
+            processElementNode(changedNode)
         }
+
+        // console.log('----')
+
 
         // Done.
         return;
 
     } else { // For childList mutation:
-        // For childlist mutation type: process the changed node along with its children via the walker below
+        // For childlist mutation type: process the changed node along with its children via the walker in order to process all child changes
+        // TODO: v2 slow slow slow
+        console.log('!!! processing childList mutation !!!')
+        console.log(changedNode)
+        // traverseNodes(changedNode, searchOption)
+
+
+
         // except for element nodes, skip for now due to performance issues.
 
-        if(changedNode.nodeType == Node.TEXT_NODE) {
-            traverseNodes(changedNode, searchOption)
-        }
+        // text nodes probably do not have children so this whole block is not needed
+        // TODO: v2
+        // console.log('processing childlist mutation')
 
-        // Should also traverse nodes but delete for now.
-        // TODO
-        if(changedNode.nodeType == Node.ELEMENT_NODE) {
-            // traverseNodes(changedNode, searchOption)
-        }
+        // if(changedNode.nodeType == Node.TEXT_NODE) {
+
+        //     traverseNodes(changedNode, searchOption)
+        // }
+
+        // Should also traverse elements? shouldn't this be caught in added nodes algorithm?!
+        // TODO: v2
+        // if(changedNode.nodeType == Node.ELEMENT_NODE) {
+        //     console.log('element childlist mutation!')
+        //     traverseNodes(changedNode, searchOption)
+        // }
     }
 
 }
@@ -229,16 +274,17 @@ function traverseNodes(changedNode, searchOption) {
     // counter for the loop
     let j = 0
     // Automatically iterate to next node.. TODO: need to refactor this to start from root.
-    while (walker.nextNode()) {
-        // console.log('walker iteration...')
-        // console.log('j = ', j)
+    let walkerNode = walker.currentNode
+    while (walkerNode != null) {
+        console.log('walker iteration...')
+        console.log('j = ', j)
         // The while loop implenetation skips root node so we need to start from previous node.
         // This line can be removed if we refactor our implementation to always start from root node.
         // Note: for mutation traversals, no need to start from the root.
-        if (j == 0) walker.previousNode()
+        // if (j == 0) walker.previousNode()
 
-        let node = walker.currentNode
-        // console.log('node in iteration: ', node)
+        let node = walkerNode
+        console.log('node in iteration: ', node)
 
         // 1) Check for emoji and replace it with ''
         // make sure element is a text node so that we only replace text. Otherwise, we would be replacing whole elements that will mess up how the page looks.
@@ -254,6 +300,7 @@ function traverseNodes(changedNode, searchOption) {
 
         // increment counter
         j++
+        walkerNode = walker.nextNode()
     }
     // if(j > 0) console.log('walker ended..!')
     j = 0
@@ -265,17 +312,37 @@ function triggerDOMScanner() {
     // Observe document nodes
     const myMutationObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
+            let addedNodes = [...mutation.addedNodes]
+            let removedNodes = [...mutation.removedNodes]
             // Note: each added node can have multiple child nodes; this is why we have to traverse it
             // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
-            mutation.addedNodes.forEach((addedNode) => {
+            addedNodes.forEach((addedNode) => {
                 addedNodeTraversal(addedNode)
             })
 
+            // if(emoji.test(mutation.target.textContent)) {
+            //     console.log('emoji found!')
+            //     console.log('mutation found, type: ', mutation.type)
+            //     console.log('mutation old value: ', mutation.oldValue)
+            //     console.log(mutation.target)
+            // }
+
             // if mutation happens, traverse it too according to certain mutation types
-            if (mutation.oldValue != null) {
+            // Do you need the check of oldValue? TODO: v2
+            // if (mutation.oldValue != null) {
+                // if(emoji.test(mutation.target.nodeValue)) {
+                //     console.log('preparing emoji for processing...')
+                //     console.log(mutation.target.nodeValue)
+                // }
                 let mutationRecord = mutation
+                // let mutatedNodeAllChildren = [...mutationRecord.target?.childNodes]
+                // // console.log(mutatedNodeAllChildren)
+                // let childrenToTraverse = mutatedNodeAllChildren?.filter(x => !addedNodes.includes(x));
+                // console.log('children to traverse: ')
+                // console.log(childrenToTraverse)
+                // TODO: v2 do not process 1) already scanned added nodes 2) removed nodes
                 mutatedNodeTraversal(mutationRecord)
-            }
+            // }
         })
     })
     
@@ -334,7 +401,7 @@ function getHalalWebAttributes() {
 }
 
 // Remove all Halal web attributes
-function removeAttributes(element) {
+function removeHalalWebAttributes(element) {
     // get all attributes
     let attributes = getHalalWebAttributes()
     // console.log(attributes)
