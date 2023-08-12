@@ -2,6 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// TODO:
+// 1- Emoji shows on tab for 1 sec then disappears
+// 2- emoji shows on tooltip except for when we refresh the page
+// 3- emoji shows if it's not based on a code
+// 4- emoji shows on tab name on getemoji.com (but not on halal web strict (why?))
+// 5- twitter does not unhide photos
+// 6- shadow dom is not blurred
+
 console.log = function() {}
 
 const GOOGLE_MAPS = 'www.google.com/maps'
@@ -63,8 +71,8 @@ const startDOMScanner = () => {
 // Stop DOM scanner
 const stopDOMScanner = () => {
     // disconnect observers
+    // TODO: v2
     // myMutationObserver.disconnect()
-    // myResizeObserver.disconnect()
 
     // Make sure body exists
     if (!window.document.body) return;
@@ -180,9 +188,6 @@ function isHalalWebElement(element) {
 }
 
 function addedNodeTraversal(addedNode) {
-    console.log('!!! processing Added node mutation !!!')
-    // console.log('node added!')
-    // console.log(addedNode)
     // Search for specific type of nodes: elements and text. This limits search range and improves performance
     let searchOption = NodeFilter.SHOW_ELEMENT + NodeFilter.SHOW_TEXT
     traverseNodes(addedNode, searchOption)
@@ -210,12 +215,7 @@ function mutatedNodeTraversal(mutationRecord) {
         console.log(changedNode)
         // process emoji node when mutationRecord is characterData, since text nodes have no attributes.
         if (changedNode.nodeType == Node.TEXT_NODE) {
-            // console.log('processing emoji replacement')
-            // console.log(mutationRecord.type)
-            // console.log('Text node will be processed...')
-            // console.log(changedNode)
             processEmojiNode(changedNode)
-
         }
 
         //  Process element node when mutationRecord is attributes or characterData
@@ -225,43 +225,15 @@ function mutatedNodeTraversal(mutationRecord) {
         //               but the chances of this happening is rare.
 
         if(changedNode.nodeType == Node.ELEMENT_NODE && mutationRecord.attributeName != 'style' && !getHalalWebAttributes().includes(mutationRecord.attributeName)) {
-            // console.log('elementNode will be processed...')
-            // console.log(changedNode)
             processElementNode(changedNode)
         }
-
-        // console.log('----')
 
 
         // Done.
         return;
 
-    } else { // For childList mutation:
-        // For childlist mutation type: process the changed node along with its children via the walker in order to process all child changes
-        // TODO: v2 slow slow slow
-        console.log('!!! processing childList mutation !!!')
-        console.log(changedNode)
-        // traverseNodes(changedNode, searchOption)
-
-
-
-        // except for element nodes, skip for now due to performance issues.
-
-        // text nodes probably do not have children so this whole block is not needed
-        // TODO: v2
-        // console.log('processing childlist mutation')
-
-        // if(changedNode.nodeType == Node.TEXT_NODE) {
-
-        //     traverseNodes(changedNode, searchOption)
-        // }
-
-        // Should also traverse elements? shouldn't this be caught in added nodes algorithm?!
-        // TODO: v2
-        // if(changedNode.nodeType == Node.ELEMENT_NODE) {
-        //     console.log('element childlist mutation!')
-        //     traverseNodes(changedNode, searchOption)
-        // }
+    } else { // For childList mutation: skip since it's covered by added nodes
+        // skip
     }
 
 }
@@ -276,15 +248,10 @@ function traverseNodes(changedNode, searchOption) {
     // Automatically iterate to next node.. TODO: need to refactor this to start from root.
     let walkerNode = walker.currentNode
     while (walkerNode != null) {
-        console.log('walker iteration...')
-        console.log('j = ', j)
-        // The while loop implenetation skips root node so we need to start from previous node.
-        // This line can be removed if we refactor our implementation to always start from root node.
-        // Note: for mutation traversals, no need to start from the root.
-        // if (j == 0) walker.previousNode()
-
+        // console.log('walker iteration...')
+        // console.log('j = ', j)
         let node = walkerNode
-        console.log('node in iteration: ', node)
+        // console.log('node in iteration: ', node)
 
         // 1) Check for emoji and replace it with ''
         // make sure element is a text node so that we only replace text. Otherwise, we would be replacing whole elements that will mess up how the page looks.
@@ -302,7 +269,6 @@ function traverseNodes(changedNode, searchOption) {
         j++
         walkerNode = walker.nextNode()
     }
-    // if(j > 0) console.log('walker ended..!')
     j = 0
 }
 
@@ -313,36 +279,14 @@ function triggerDOMScanner() {
     const myMutationObserver = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             let addedNodes = [...mutation.addedNodes]
-            let removedNodes = [...mutation.removedNodes]
             // Note: each added node can have multiple child nodes; this is why we have to traverse it
             // To do: to better performance, do not traverse nodes twice by keeping  a list of traversed nodes.
             addedNodes.forEach((addedNode) => {
                 addedNodeTraversal(addedNode)
             })
 
-            // if(emoji.test(mutation.target.textContent)) {
-            //     console.log('emoji found!')
-            //     console.log('mutation found, type: ', mutation.type)
-            //     console.log('mutation old value: ', mutation.oldValue)
-            //     console.log(mutation.target)
-            // }
-
-            // if mutation happens, traverse it too according to certain mutation types
-            // Do you need the check of oldValue? TODO: v2
-            // if (mutation.oldValue != null) {
-                // if(emoji.test(mutation.target.nodeValue)) {
-                //     console.log('preparing emoji for processing...')
-                //     console.log(mutation.target.nodeValue)
-                // }
-                let mutationRecord = mutation
-                // let mutatedNodeAllChildren = [...mutationRecord.target?.childNodes]
-                // // console.log(mutatedNodeAllChildren)
-                // let childrenToTraverse = mutatedNodeAllChildren?.filter(x => !addedNodes.includes(x));
-                // console.log('children to traverse: ')
-                // console.log(childrenToTraverse)
-                // TODO: v2 do not process 1) already scanned added nodes 2) removed nodes
-                mutatedNodeTraversal(mutationRecord)
-            // }
+            let mutationRecord = mutation
+            mutatedNodeTraversal(mutationRecord)
         })
     })
     
@@ -361,15 +305,7 @@ function triggerDOMScanner() {
         for (var i = 0; i < allElements.length; i++) {
             if(allElements[i].shadowRoot) {
                 allElements[i].style.setProperty('display', 'none', 'important')
-                // $(allElements[i]).attr(ATTR_TO_REFRESH_NODE, true)
-                // $(allElements[i]).removeAttr(ATTR_TO_REFRESH_NODE)
             }
-
-            if(allElements[i].nodeName == 'IFRAME') {
-                // mutate object
-                // $(allElements[i].parentElement)?.attr(ATTR_TO_REFRESH_NODE, true)
-                // $(allElements[i].parentElement)?.removeAttr(ATTR_TO_REFRESH_NODE)
-            } 
         }
     });
 
@@ -380,9 +316,6 @@ function triggerDOMScanner() {
     // refreshDOM()
 }
 
-// function refreshElement() {
-
-// }
 
 // Refresh dom by adding/removing an attribute which will trigger observers all over again
 function refreshDOM() {
@@ -404,7 +337,6 @@ function getHalalWebAttributes() {
 function removeHalalWebAttributes(element) {
     // get all attributes
     let attributes = getHalalWebAttributes()
-    // console.log(attributes)
 
     // for each attribute, if the element has it, remove it
     attributes.forEach((attr) => {
