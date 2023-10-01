@@ -18,6 +18,7 @@ const emoji = /\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?|\p{Emoji_Presentation}
 let options = null
 let helper = null
 let PAGE_BLURRED = false
+let HOVER_LOCKED = true
 let ELEMENTS_TO_BLUR = ['img', 'image', 'video', 'iframe', 'canvas', '*[style*="url"]']
 let ICONS_TO_BLUR = ['svg', 'span[class*="icon-"]', ':before', ':after']
 let ATTR_TO_BLUR_ELEMENT = 'data-element-found-by-dom-scanner'
@@ -65,6 +66,8 @@ function removeBlurCSS() {
 const startDOMScanner = () => {
     // Add an event listener to mouse move to detect where it is on the document
     document.addEventListener('mousemove', (e) => BlurUnBlur(e))
+
+    // Add touchmove, touchstart, touchend to handle blurring/unblurring touch events
     triggerDOMScanner()
 }
 
@@ -385,7 +388,7 @@ function BlurUnBlur(e) {
     hoveredOnElements.forEach((el) => {
         if($(el).attr(ATTR_TO_BLUR_ELEMENT) || $(el).attr(ATTR_TO_BLUR_ICON) || $(el).attr(ATTR_TO_BLUR_PSEUDO)) {
             // if ctrl and alt key are pressed then unhide
-            if(e.ctrlKey && e.altKey) {
+            if(e.ctrlKey && e.altKey && !HOVER_LOCKED) {
                 // pseudo elements unhide using css classes because their properties cannot be dynamically accessed.
                 if($(el).attr(ATTR_TO_BLUR_PSEUDO)) {
                     el.classList.add('halal-web-pseudo-unhide')
@@ -406,6 +409,10 @@ function blurUnblurPage() {
     } else {
         blurPage()
     }
+}
+
+function lockHover(value) {
+    HOVER_LOCKED = value
 }
 
 function blurPage() {
@@ -547,6 +554,11 @@ chrome.runtime.onMessage.addListener(
                 case 'blurUnblurPage':
                     blurUnblurPage()
                     break;
+
+                case 'lockHover':
+                    lockHover(request.value)
+                    break;
+
                 case 'getPageUrl':
                     sendResponse(getPageUrl())
                     break;

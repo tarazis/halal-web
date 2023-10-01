@@ -20,6 +20,11 @@ class Helper {
     getOptions = async (init=false) => {
         var self = this
         return new Promise(function(resolve, reject) {
+            if(chrome.storage == null || chrome.storage == 'undefined') {
+                // TODO: reject or resolve
+                resolve(initialOptions)
+            }
+
             chrome.storage.sync.get(['options'], async (res) => {
                 if (chrome.runtime.lastError) {
                     console.error(chrome.runtime.lastError.message);
@@ -44,6 +49,9 @@ class Helper {
 
      async setOptions(newOptions) {
         return new Promise(function(resolve, reject) {
+            if(chrome.storage == null || chrome.storage == 'undefined') {
+                reject()
+            }
             chrome.storage.sync.set({'options' : newOptions }, (res) => {
                 if (chrome.runtime.lastError) {
                     console.error(chrome.runtime.lastError.message);
@@ -59,6 +67,9 @@ class Helper {
     async removeOptions() {
         return new Promise(function(resolve, reject) {
             chrome.storage.sync.remove('options', (res) => {
+                if(chrome.storage == null || chrome.storage == 'undefined') {
+                    reject()
+                }
                 if (chrome.runtime.lastError) {
                     console.error(chrome.runtime.lastError.message);
                     reject(chrome.runtime.lastError.message);

@@ -14,19 +14,24 @@ let hostname = null
 let pathname = null
 let helper = null
 let options = null
+let locked = true
+let whitelistBtn, dangerlistBtn, blurBtn, lockBtn, elementBlurSlider, iconBlurSlider, elementBlurText, iconBlurText
 
 async function popupInit() {
+    console.log('heey')
     helper = new Helper()
-    let whitelistBtn = getById('whitelist-domain-btn')
-    let dangerlistBtn = getById('dangerlist-domain-btn')
-    let blurBtn = getById('blur-button')
-    let elementBlurSlider = getById('blur-level-elements')
-    let iconBlurSlider = getById('blur-level-icons')
-    let elementBlurText = getById('elementBlurAmt')
-    let iconBlurText = getById('iconBlurAmt')
+    whitelistBtn = getById('whitelist-domain-btn')
+    dangerlistBtn = getById('dangerlist-domain-btn')
+    blurBtn = getById('blur-button')
+    lockBtn = getById('lock-button')
+    elementBlurSlider = getById('blur-level-elements')
+    iconBlurSlider = getById('blur-level-icons')
+    elementBlurText = getById('elementBlurAmt')
+    iconBlurText = getById('iconBlurAmt')
 
     // Initialize options if first time
     options = await helper.getOptions(true)
+    console.log('hey')
 
     /* populate UIs: */
 
@@ -86,8 +91,71 @@ async function popupInit() {
         await sendMessageToContent('updateBlurIcon', newValue)
     })
 
+    // Lock all buttons by default
+    lockButtons(true)
+
+    // disable hover unblur by default
+    await sendMessageToContent('lockHover', true)
+
+    // Add event listener to lock button in order to lock/unlock blurring
+    // Only unlock buttons and hover if user confirms
+    lockBtn.addEventListener("click", async () => {
+        // If button was unchecked, ask user for confirmation.
+        if(!lockBtn.checked) {
+            ConfirmDialog('!! HARAM CONTENT MAY APPEAR !!');
+        } else {
+            // If button was just checked, then lock buttons and hover
+            lockButtons(true)
+            await sendMessageToContent('lockHover', true)
+        }
+    })
+
 }
 
+async function handleLockConfirmation(response) {
+    // If user proceeds, then unlock popup buttons and hover
+    if (response) {
+        lockButtons(false)
+        await sendMessageToContent('lockHover', false)
+        // If user does not proceed, recheck button and do nothing (buttons will be locked by default)
+    } else {
+        lockBtn.checked = true
+    }
+}
+function ConfirmDialog(message) {
+    $('<div></div>').appendTo('body')
+      .html('<div><p>' + message + '</p><p>Proceed?</p></div>')
+      .dialog({
+        modal: true,
+        title: '!! HARAM WARNING !!',
+        zIndex: 10000,
+        autoOpen: true,
+        width: 'auto',
+        resizable: false,
+        buttons: {
+          Yes: function() {
+            $(this).dialog("close");
+            handleLockConfirmation(true)
+          },
+          No: function() {  
+            $(this).dialog("close");
+            handleLockConfirmation(false)
+          }
+        },
+        close: function(event, ui) {
+          $(this).remove();
+        }
+      });
+}
+
+
+function lockButtons(value) {
+    blurBtn.disabled = value
+    elementBlurSlider.disabled = value
+    iconBlurSlider.disabled = value
+    whitelistBtn.disabled = value
+    dangerlistBtn.disabled = value
+}
 async function populateBlurLevels() {
     let elementBlurSlider = getById('blur-level-elements')
     let iconBlurSlider = getById('blur-level-icons')
@@ -139,9 +207,9 @@ function getById(id) {
 }
 
 async function sendMessageToContent(message, value) {
-    let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    let [tab] = await chrome.tabs?.query({ active: true, currentWindow: true });
     // the key 'action' here is optionally chosen. could have named it 'message' or anything else. 
-    return await chrome.tabs.sendMessage(tab.id, { action: message, value})
+    return await chrome.tabs?.sendMessage(tab.id, { action: message, value})
 }
 
 // send a message to content script
